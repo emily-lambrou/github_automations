@@ -6,7 +6,7 @@ import requests
 import config
 import graphql
 
-def notify_change_status(project_id,status_field_id):
+def notify_change_status():
     if config.is_enterprise:
         # Get the issues
         issues = graphql.get_project_issues(
