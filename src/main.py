@@ -29,6 +29,8 @@ def notify_change_status(project_id,status_field_id):
         logger.info('No issues have been found')
         return
 
+    logger.info(f'Issues: ')
+
     # Loop through issues
     for issue in issues:
         # Skip the issues if it's closed
@@ -64,69 +66,13 @@ def notify_change_status(project_id,status_field_id):
             logger.warning(f'Project item does not contain "fieldValueByName": {project_item}')
             continue
 
-        item_id = graphql.get_item_id_by_issue_id(
-            project_id=project_id,
-            issue_id=issue_id
-        )
-        
-        if not item_id:
-            logging.error(f"Item id not found in project {project_title}.")
-            return None
-
-        status_name = "QA Testing"
-            
-        current_status = project_item['fieldValueByName'].get('name')
-        
-        # Check if the current status is "QA Testing"
-        if current_status == 'QA Testing':
-            continue # Skip this issue and move to the next since it is already in QA Testing, no need to update
-        else:
-            
-            if not config.dry_run: # if True then enable the functionality to update the status
-                
-                # Check if the PR is merged from the issue timelines
-                has_merged_pr = graphql.get_issue_has_merged_pr(issue_id)
-                if has_merged_pr:  
-                    logger.info(f'Proceeding updating the status of {issue_title}, to QA Testing as the issue {issue_title} contains a merged PR.')
-                    graphql.update_issue_status_to_qa_testing(
-                        owner=config.repository_owner,
-                        project_title=project_title,
-                        item_id=item_id,
-                        status_name=status_name
-                    )
-                
+               
 def main():
     logger.info('Process started...')
     if config.dry_run:
         logger.info('DRY RUN MODE ON!')
 
-    # -----------------------------------------------------------------------------
-    # General variables to run only once to get the project_id and status_field_id
-    # -----------------------------------------------------------------------------
-
-    project_title = 'George Test'
-    
-    project_id = graphql.get_project_id_by_title(
-        owner=config.repository_owner, 
-        project_title=project_title
-    )
-    
-    if not project_id:
-        logging.error(f"Project {project_title} not found.")
-        return None
-    
-    status_field_id = graphql.get_status_field_id(
-        project_id=project_id,
-        status_field_name=config.status_field_name
-    )
-    
-    if not status_field_id:
-        logging.error(f"Status field not found in project {project_title}.")
-        return None
-    
-    # -----------------------------------------------------------------------------
-
-    notify_change_status(project_id,status_field_id)
+    notify_change_status()
 
 if __name__ == "__main__":
     main()
