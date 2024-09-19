@@ -159,10 +159,18 @@ def get_project_issues(owner, owner_type, project_number, status_field_name, fil
         if filters:
             filtered_issues = []
             for node in nodes:
-                if filters.get('closed_only') and node['content'].get('state') != 'CLOSED':
+                issue_content = node.get('content', {})
+                if not issue_content:
                     continue
-                if filters.get('empty_status') and node['fieldValueByName']:
+    
+                issue_id = issue_content.get('id')
+                if not issue_id:
                     continue
+                
+                if filters.get('open_only') and node['content'].get('state') != 'OPEN':
+                    logging.debug(f"Filtering out issue ID {issue_id} with state {issue_content.get('state')}")
+                    continue
+                
                 filtered_issues.append(node)
     
             nodes = filtered_issues
