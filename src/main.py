@@ -29,44 +29,26 @@ def notify_change_status():
         logger.info('No issues have been found')
         return
 
-    logger.info(f'Issues: ')
-
-    # Loop through issues
-    for issue in issues:
-        # Skip the issues if it's closed
-        if issue.get('state') == 'CLOSED':
+    for projectItem in issues:
+        issue = projectItem.get('content')
+        if not issue:
+            logger.warning(f'Issue object does not contain "content": {projectItem}')
             continue
         
-        # Print the issue object for debugging
-        print("Issue object: ", json.dumps(issue, indent=4))
-
-        # Ensure 'content' is present
-        issue_content = issue.get('content', {})
-        if not issue_content:
-            logger.warning(f'Issue object does not contain "content": {issue}')
+        issue_id = issue.get('id')
+        if issue.get('state') == 'CLOSED':
             continue
 
         issue_title = issue.get('title', 'Unknown Title')
-        
-        # Ensure 'id' is present in issue content
-        issue_id = issue_content.get('id')
-        if not issue_id:
-            logger.warning(f'Issue content does not contain "id": {issue_content}')
-            continue
 
-        # Get the project item from issue
-        project_items = issue.get('projectItems', {}).get('nodes', [])
-        if not project_items:
-            logger.warning(f'No project items found for issue {issue_id}')
-            continue
-        
         # Check the first project item
-        project_item = project_items[0]
-        if not project_item.get('fieldValueByName'):
-            logger.warning(f'Project item does not contain "fieldValueByName": {project_item}')
-            continue
+        project_items = issue.get('projectItems', {}).get('nodes', [])
+        if project_items:
+            current_status = project_items[0] 
+            logger.info(f"current status: {current_status}")
+        else:
+            logger.warning('No project items found for issue')
 
-               
 def main():
     logger.info('Process started...')
     if config.dry_run:
