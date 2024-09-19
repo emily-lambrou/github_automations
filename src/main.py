@@ -8,7 +8,6 @@ import graphql
 
 def notify_change_status():
     if config.is_enterprise:
-        # Get the issues
         issues = graphql.get_project_issues(
             owner=config.repository_owner,
             owner_type=config.repository_owner_type,
@@ -17,14 +16,12 @@ def notify_change_status():
             filters={'open_only': True}
         )
     else:
-        # Get the issues
         issues = graphql.get_repo_issues(
             owner=config.repository_owner,
             repository=config.repository_name,
             status_field_name=config.status_field_name
         )
 
-    # Check if there are issues available
     if not issues:
         logger.info('No issues have been found')
         return
@@ -35,22 +32,26 @@ def notify_change_status():
             logger.warning(f'Issue object does not contain "content": {projectItem}')
             continue
         
-        logger.info(f'Issue object: {json.dumps(issue, indent=2)}')  # Log the full issue object for debugging
+        logger.info(f'Issue object: {json.dumps(issue, indent=2)}')  # Debugging info
 
-        
         issue_id = issue.get('id')
         if issue.get('state') == 'CLOSED':
             continue
 
         issue_title = issue.get('title', 'Unknown Title')
 
-        # Check the first project item
-        project_items = issue.get('projectItems', {}).get('nodes', [])
-        if project_items:
-            current_status = project_items[0] 
-            logger.info(f"current status: {current_status}")
+        # Check if projectItems exists and is a list
+        project_items = issue.get('projectItems', {})
+        if isinstance(project_items, dict):
+            nodes = project_items.get('nodes', [])
+            if nodes:
+                current_status = nodes[0] 
+                logger.info(f"current status: {current_status}")
+            else:
+                logger.warning(f'No project items nodes found for issue ID {issue_id}')
         else:
-            logger.warning('No project items found for issue')
+            logger.warning(f'Project items field is not a dict or is missing for issue ID {issue_id}')
+
 
 def main():
     logger.info('Process started...')
