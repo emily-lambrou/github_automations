@@ -40,6 +40,16 @@ def notify_change_status():
 
         issue_title = issue.get('title', 'Unknown Title')
 
+        # Call get_project_items if needed
+        project_items = graphql.get_project_items(
+            owner=config.repository_owner,
+            owner_type=config.repository_owner_type,
+            project_number=config.project_number,
+            status_field_name=config.status_field_name
+        )
+        
+        logger.info(f"Project items: {json.dumps(project_items, indent=2)}")
+
         # Check if projectItems exists and is a list
         project_items = issue.get('projectItems', {})
         if isinstance(project_items, dict):
