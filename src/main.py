@@ -35,6 +35,9 @@ def notify_change_status():
             logger.warning(f'Issue object does not contain "content": {projectItem}')
             continue
         
+        logger.info(f'Issue object: {json.dumps(issue, indent=2)}')  # Log the full issue object for debugging
+
+        
         issue_id = issue.get('id')
         if issue.get('state') == 'CLOSED':
             continue
