@@ -26,47 +26,47 @@ def notify_change_status():
         logger.info('No issues have been found')
         return
 
-    for projectItem in issues:
-        issue = projectItem.get('content')
-        if not issue:
-            logger.warning(f'Issue object does not contain "content": {projectItem}')
-            continue
-        
-        logger.info(f'Issue object: {json.dumps(issue, indent=2)}')  # Debugging info
-
-        issue_id = issue.get('id')
+    for issue in issues: 
+        # Skip the issues if it's closed
         if issue.get('state') == 'CLOSED':
             continue
 
+        # Print the issue object for debugging
+        print("Issue object: ", json.dumps(issue, indent=4))
+
         issue_title = issue.get('title', 'Unknown Title')
-
-        has_merged_pr = graphql.get_issue_has_merged_pr(issue_id)
-        logger.info(f'The issue has merged pr?: {has_merged_pr}')
-
-       
-        # Call get_project_items if needed
-        project_items = graphql.get_project_items(
-            owner=config.repository_owner,
-            owner_type=config.repository_owner_type,
-            project_number=config.project_number,
-            status_field_name=config.status_field_name
-        )
         
-        logger.info(f"Project items: {json.dumps(project_items, indent=2)}")
+        # Ensure 'id' is present in issue content
+        issue_id = issue_content.get('id')
+        if not issue_id:
+            logger.warning(f'Issue content does not contain "id": {issue_content}')
+            continue
 
-        # Check if projectItems exists and is a list
-        project_items = issue.get('projectItems', {})
+        # Get the project item from issue
+        project_items = issue.get('projectItems', {}).get('nodes', [])
+        if not project_items:
+            logger.warning(f'No project items found for issue {issue_id}')
+            continue
         
-        if isinstance(project_items, dict):
-            nodes = project_items.get('nodes', [])
-            if nodes:
-                current_status = nodes[0] 
-                logger.info(f"current status: {current_status}")
-            else:
-                logger.warning(f'No project items nodes found for issue ID {issue_id}')
+        # Check the first project item
+        project_item = project_items[0]
+        if not project_item.get('fieldValueByName'):
+            logger.warning(f'Project item does not contain "fieldValueByName": {project_item}')
+            continue
+
+        current_status = project_item['fieldValueByName'].get('name')
+        if not current_status:
+            logger.warning(f'No status found in fieldValueByName for project item: {project_item}')
+            continue
+
+        if current_status == 'QA Testing':
+            continue # Skip this issue and move to the next since it is already in QA Testing, no need to update
         else:
-            logger.warning(f'Project items field is not a dict or is missing for issue ID {issue_id}')
-
+            has_merged_pr = graphql.get_issue_has_merged_pr(issue_id)
+            logger.info(f'This issue has merged PR? : {has_merged_pr}')
+            if has_merged_pr:  
+                logger.info(f'Proceeding updating the status of {issue_title}, to QA Testing as the issue {issue_title} contains a merged PR.')
+        
 
 def main():
     logger.info('Process started...')
