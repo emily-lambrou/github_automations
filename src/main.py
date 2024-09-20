@@ -56,7 +56,14 @@ def notify_change_status():
 
     #----------------------------------------------------------------------------------------
 
-    items = graphql.get_project_items(owner, owner_type, project_number, status_field_name)
+
+    
+    items = graphql.get_project_items(
+        owner=config.repository_owner, 
+        owner_type=config.repository_owner_type,
+        project_number=config.project_number,
+        status_field_name=config.status_field_name
+    )
 
     for issue in issues:
         # Skip the issues if they are closed
