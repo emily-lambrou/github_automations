@@ -47,7 +47,7 @@ def notify_change_status():
         logger.info(f'The current status of this issue is: {current_status}')
 
         # Filter out closed issues if specified
-        if config.filters.get('open_only') and issue_content.get('state') != 'OPEN':
+        if filters.get('open_only') and issue_content.get('state') != 'OPEN':
             logger.debug(f"Filtering out issue ID {issue_id} with state {issue_content.get('state')}")
             continue
         
