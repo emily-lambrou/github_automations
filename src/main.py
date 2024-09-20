@@ -56,7 +56,6 @@ def notify_change_status():
 
     #----------------------------------------------------------------------------------------
 
-
     items = graphql.get_project_items(
         owner=config.repository_owner, 
         owner_type=config.repository_owner_type,
