@@ -1,12 +1,12 @@
 from logger import logger
 import logging
 import json
-import os
 import requests
 import config
 import graphql
 
 def notify_change_status():
+    # Fetch issues based on whether it's an enterprise or not
     if config.is_enterprise:
         issues = graphql.get_project_issues(
             owner=config.repository_owner,
@@ -26,42 +26,42 @@ def notify_change_status():
         logger.info('No issues have been found')
         return
 
-    for issue in issues: 
-        for node in nodes:
-            issue_content = node.get('content', {})
-                if not issue_content:
-                    continue
+    for issue in issues:
+        # Ensure the issue contains content
+        issue_content = issue.get('content', {})
+        if not issue_content:
+            logger.warning(f'Issue does not contain content: {issue}')
+            continue
 
-                issue_id = issue_content.get('id')
-                if not issue_id:
-                    continue
+        issue_id = issue_content.get('id')
+        if not issue_id:
+            logger.warning('Issue does not have an ID')
+            continue
 
-                # Print the issue object for debugging
-                print("Issue object: ", json.dumps(issue, indent=4))
+        # Debugging output for the issue
+        logger.info("Issue object: %s", json.dumps(issue, indent=4))
 
+        # Safely get the fieldValueByName and current status
+        field_value = issue.get('fieldValueByName')
+        current_status = field_value.get('name') if field_value else None
+        logger.info(f'The current status of this issue is: {current_status}')
 
-                # Safely get the fieldValueByName and current status
-            
-                field_value = node.get('fieldValueByName')
-                current_status = field_value.get('name') if field_value else None
-                logger.info(f'The current status of this issue is: {current_status}')
-
-
-                if filters.get('open_only') and issue_content.get('state') != 'OPEN':
-                    logging.debug(f"Filtering out issue ID {issue_id} with state {issue_content.get('state')}")
-                    continue
-                
-                issue_title = issue.get('title', 'Unknown Title')
-
-                if current_status == 'QA Testing':
-                    continue
-                else:
-                    logger.info(f'Current status is NOT QA Testing')
-                    has_merged_pr = graphql.get_issue_has_merged_pr(issue_id)
-                    logger.info(f'This issue has merged PR? : {has_merged_pr}')
-                    if has_merged_pr:  
-                        logger.info(f'Proceeding updating the status of {issue_title}, to QA Testing as the issue {issue_title} contains a merged PR.')
+        # Filter out closed issues if specified
+        if config.filters.get('open_only') and issue_content.get('state') != 'OPEN':
+            logger.debug(f"Filtering out issue ID {issue_id} with state {issue_content.get('state')}")
+            continue
         
+        issue_title = issue.get('title', 'Unknown Title')
+
+        if current_status == 'QA Testing':
+            logger.info(f'Skipping {issue_title} as it is already in QA Testing.')
+            continue
+        else:
+            logger.info(f'Current status is NOT QA Testing for {issue_title}.')
+            has_merged_pr = graphql.get_issue_has_merged_pr(issue_id)
+            logger.info(f'This issue has merged PR? : {has_merged_pr}')
+            if has_merged_pr:  
+                logger.info(f'Proceeding to update the status of {issue_title} to QA Testing as it contains a merged PR.')
 
 def main():
     logger.info('Process started...')
