@@ -57,13 +57,15 @@ def notify_change_status():
     #----------------------------------------------------------------------------------------
 
 
-    
     items = graphql.get_project_items(
         owner=config.repository_owner, 
         owner_type=config.repository_owner_type,
         project_number=config.project_number,
         status_field_name=config.status_field_name
     )
+
+    # Log fetched project items
+    logger.info(f'Fetched project items: {json.dumps(items, indent=4)}')
 
     for issue in issues:
         # Skip the issues if they are closed
@@ -101,15 +103,19 @@ def notify_change_status():
                 logger.info(f'Proceeding to update the status to QA Testing as it contains a merged PR.')
 
                 # Find the item id for the issue
-                item_id = None
+                item_found = False
                 for item in items:
+                    logger.info(f'Checking item: {json.dumps(item, indent=4)}')  # Log each item
+
                     if item.get('content') and item['content'].get('id') == issue_id:
                         item_id = item['id']
+                        item_found = True
                         break
+                        
                 logger.info(f'Item id for issue {issue_id}: {item_id}')
 
-                if not item_id:
-                    logger.error(f'Item id not fount for issue {issue_id} in project {project_title}')
+                if not item_found:
+                    logger.error(f"Item ID not found for issue {issue_id} in project {project_title}.")
                     continue #  Skip the issue as it cannot be updated
 
                 # Proceed to update the status
