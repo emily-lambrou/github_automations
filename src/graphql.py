@@ -375,5 +375,3 @@ def get_issue_has_merged_pr(issue_id):
 
 
 
-
-
