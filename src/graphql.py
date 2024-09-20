@@ -194,41 +194,48 @@ def get_project_issues(owner, owner_type, project_number, status_field_name, fil
         return []
 
 
-
-
 def get_project_items(owner, owner_type, project_number, status_field_name, filters=None, after=None, items=None):
     query = """
     query GetProjectItems($owner: String!, $projectNumber: Int!, $status: String!, $after: String) {
-        repository(owner: $owner, name: $projectNumber) {
-            issues(first: 100, after: $after) {
-                edges {
-                    node {
-                        id
-                        title
-                        state
-                        projectItems(first: 10) {
-                            nodes {
-                                id
-                                project {
-                                    name
-                                }
-                                status {
-                                    name
-                                }
-                            }
-                        }
+      {owner_type}(login: $owner) {
+        projectV2(number: $projectNumber) {
+          id
+          title
+          items(first: 100, after: $after) {
+            nodes {
+              id
+              fieldValueByName(name: $status) {
+                ... on ProjectV2ItemFieldSingleSelectValue {
+                  id
+                  name
+                }
+              }
+              content {
+                ... on Issue {
+                  id
+                  title
+                  state
+                  url
+                  assignees(first: 10) {
+                    nodes {
+                      name
+                      email
+                      login
                     }
+                  }
                 }
-                pageInfo {
-                    endCursor
-                    hasNextPage
-                    hasPreviousPage
-                }
+              }
             }
+            pageInfo {
+              endCursor
+              hasNextPage
+            }
+          }
         }
+      }
     }
     """
-
+    
     variables = {
         'owner': owner,
         'projectNumber': project_number,
@@ -243,23 +250,25 @@ def get_project_items(owner, owner_type, project_number, status_field_name, filt
             headers={"Authorization": f"Bearer {config.gh_token}"}
         )
 
-        # Check for errors in the response
         data = response.json()
 
         if 'errors' in data:
             logging.error(f"GraphQL query errors: {data['errors']}")
             return []
 
-        repository_data = data.get('data', {}).get('repository', {})
-        issues_data = repository_data.get('issues', {})
-        pageinfo = issues_data.get('pageInfo', {})
-        nodes = issues_data.get('edges', [])
+        # Extract project items
+        owner_data = data.get('data', {}).get(owner_type, {})
+        project_data = owner_data.get('projectV2', {})
+        items_data = project_data.get('items', {})
+        pageinfo = items_data.get('pageInfo', {})
+        nodes = items_data.get('nodes', [])
 
         if items is None:
             items = []
 
         items += nodes
 
+        # Fetch more pages if available
         if pageinfo.get('hasNextPage'):
             return get_project_items(
                 owner=owner,
