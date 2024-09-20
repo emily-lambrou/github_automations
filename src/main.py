@@ -104,33 +104,31 @@ def notify_change_status():
                     if item.get('content') and item['content'].get('id') == issue_id:
                         item_id = item['id']
                         item_found = True
-                        break
                         
-                logger.info(f'Item id for issue {issue_id}: {item_id}')
-
+                        # Proceed to update the status
+                
+                        status_option_id = "MDM1OlByb2plY3RWMkl0ZW1GaWVsZFNpbmdsZVNlbGVjdFZhbHVlOTY2MTE=" 
+        
+                        update_result = graphql.update_issue_status_to_qa_testing(
+                            owner=config.repository_owner,
+                            project_title=project_title,
+                            project_id=project_id,
+                            status_field_id=status_field_id,
+                            item_id=item_id,
+                            status_option_id=status_option_id
+                        )
+        
+                        if update_result:
+                            logger.info(f'Successfully updated issue {issue_id} to QA Testing.')
+                        else:
+                            logger.error(f'Failed to update issue {issue_id}.')
+                            
+                            break
+                        
                 if not item_found:
                     continue #  Skip the issue as it cannot be updated
 
-                # Proceed to update the status
                 
-                status_option_id = "MDM1OlByb2plY3RWMkl0ZW1GaWVsZFNpbmdsZVNlbGVjdFZhbHVlOTY2MTE=" 
-
-                update_result = graphql.update_issue_status_to_qa_testing(
-                    owner=config.repository_owner,
-                    project_title=project_title,
-                    project_id=project_id,
-                    status_field_id=status_field_id,
-                    item_id=item_id,
-                    status_option_id=status_option_id
-                )
-
-                if update_result:
-                    logger.info(f'Successfully updated issue {issue_id} to QA Testing.')
-                else:
-                    logger.error(f'Failed to update issue {issue_id}.')
-        
-               
-
 def main():
     logger.info('Process started...')
     if config.dry_run:
