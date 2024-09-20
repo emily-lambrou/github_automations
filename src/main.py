@@ -35,6 +35,12 @@ def notify_change_status():
         print("Issue object: ", json.dumps(issue, indent=4))
 
         issue_title = issue.get('title', 'Unknown Title')
+
+        # Ensure 'content' is present
+        issue_content = issue.get('content', {})
+        if not issue_content:
+            logger.warning(f'Issue object does not contain "content": {issue}')
+            continue
         
         # Ensure 'id' is present in issue content
         issue_id = issue_content.get('id')
