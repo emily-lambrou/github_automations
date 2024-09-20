@@ -45,11 +45,6 @@ def notify_change_status():
         field_value = issue.get('fieldValueByName')
         current_status = field_value.get('name') if field_value else None
         logger.info(f'The current status of this issue is: {current_status}')
-
-        # Filter out closed issues if specified
-        if filters.get('open_only') and issue_content.get('state') != 'OPEN':
-            logger.debug(f"Filtering out issue ID {issue_id} with state {issue_content.get('state')}")
-            continue
         
         issue_title = issue.get('title', 'Unknown Title')
 
