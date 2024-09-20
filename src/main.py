@@ -26,6 +26,36 @@ def notify_change_status():
         logger.info('No issues have been found')
         return
 
+    #----------------------------------------------------------------------------------------
+    # Get the project_id and status_field_id: 
+    #----------------------------------------------------------------------------------------
+
+    project_title = 'George Test'
+    
+    project_id = graphql.get_project_id_by_title(
+        owner=config.repository_owner, 
+        project_title=project_title
+    )
+
+    logger.info(f'Printing the project_id: {project_id}')
+
+    if not project_id:
+        logging.error(f"Project {project_title} not found.")
+        return None
+    
+    status_field_id = graphql.get_status_field_id(
+        project_id=project_id,
+        status_field_name=config.status_field_name
+    )
+
+    logger.info(f"Printing the status_field_id: {status_field_id}")
+
+    if not status_field_id:
+        logging.error(f"Status field not found in project {project_title}")
+        return None
+
+    #----------------------------------------------------------------------------------------
+
     for issue in issues:
         # Skip the issues if they are closed
         if issue.get('state') == 'CLOSED':
