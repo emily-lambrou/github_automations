@@ -27,54 +27,40 @@ def notify_change_status():
         return
 
     for issue in issues: 
-        # Skip the issues if it's closed
-        if issue.get('state') == 'CLOSED':
-            continue
+        for node in nodes:
+            issue_content = node.get('content', {})
+                if not issue_content:
+                    continue
 
-        # Print the issue object for debugging
-        print("Issue object: ", json.dumps(issue, indent=4))
+                issue_id = issue_content.get('id')
+                if not issue_id:
+                    continue
 
-        issue_title = issue.get('title', 'Unknown Title')
+                # Print the issue object for debugging
+                print("Issue object: ", json.dumps(issue, indent=4))
 
-        # Ensure 'content' is present
-        issue_content = issue.get('content', {})
-        if not issue_content:
-            logger.warning(f'Issue object does not contain "content": {issue}')
-            continue
-        
-        # Ensure 'id' is present in issue content
-        issue_id = issue_content.get('id')
-        if not issue_id:
-            logger.warning(f'Issue content does not contain "id": {issue_content}')
-            continue
 
-        # Get the project item from issue
-        project_items = issue_content.get('projectItems', {}).get('nodes', [])
-        if not project_items:
-            logger.warning(f'No project items found for issue {issue_id}')
-            continue
-        
-        # Check the first project item
-        project_item = project_items[0]
-        if not project_item.get('fieldValueByName'):
-            logger.warning(f'Project item does not contain "fieldValueByName": {project_item}')
-            continue
+                # Safely get the fieldValueByName and current status
+            
+                field_value = node.get('fieldValueByName')
+                current_status = field_value.get('name') if field_value else None
+                logger.info(f'The current status of this issue is: {current_status}')
 
-        current_status = project_item['fieldValueByName'].get('name')
-        logger.info(f'The current status of this issue is: {current_status}')
-        
-        if not current_status:
-            logger.warning(f'No status found in fieldValueByName for project item: {project_item}')
-            continue
 
-        if current_status == 'QA Testing':
-            continue # Skip this issue and move to the next since it is already in QA Testing, no need to update
-        else:
-            logger.info(f'Current status is NOT QA Testing')
-            has_merged_pr = graphql.get_issue_has_merged_pr(issue_id)
-            logger.info(f'This issue has merged PR? : {has_merged_pr}')
-            if has_merged_pr:  
-                logger.info(f'Proceeding updating the status of {issue_title}, to QA Testing as the issue {issue_title} contains a merged PR.')
+                if filters.get('open_only') and issue_content.get('state') != 'OPEN':
+                    logging.debug(f"Filtering out issue ID {issue_id} with state {issue_content.get('state')}")
+                    continue
+                
+                issue_title = issue.get('title', 'Unknown Title')
+
+                if current_status == 'QA Testing':
+                    continue
+                else:
+                    logger.info(f'Current status is NOT QA Testing')
+                    has_merged_pr = graphql.get_issue_has_merged_pr(issue_id)
+                    logger.info(f'This issue has merged PR? : {has_merged_pr}')
+                    if has_merged_pr:  
+                        logger.info(f'Proceeding updating the status of {issue_title}, to QA Testing as the issue {issue_title} contains a merged PR.')
         
 
 def main():
