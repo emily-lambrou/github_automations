@@ -513,7 +513,6 @@ def get_issue_has_merged_pr(issue_id):
         logging.error(f"Request error: {e}")
         return False
 
-
 def update_issue_status_to_qa_testing(owner, project_title, project_id, status_field_id, item_id, status_option_id):
     mutation = """
     mutation UpdateIssueStatus($projectId: ID!, $itemId: ID!, $statusFieldId: ID!, $statusOptionId: ID!) {
