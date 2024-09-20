@@ -194,46 +194,47 @@ def get_project_issues(owner, owner_type, project_number, status_field_name, fil
         return []
 
 def get_project_items(owner, owner_type, project_number, status_field_name, filters=None, after=None, items=None):
-    query = """
-    query GetProjectItems($owner: String!, $projectNumber: Int!, $status: String!, $after: String) {
-        {owner_type}(login: $owner) {
-            projectV2(number: $projectNumber) {
-                id
-                title
-                items(first: 100, after: $after) {
-                    nodes {
-                        id
-                        fieldValueByName(name: $status) {
-                            ... on ProjectV2ItemFieldSingleSelectValue {
-                                id
-                                name
-                            }
-                        }
-                        content {
-                            ... on Issue {
-                                id
-                                title
-                                state
-                                url
-                                assignees(first: 10) {
-                                    nodes {
-                                        name
-                                        email
-                                        login
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    pageInfo {
-                        endCursor
-                        hasNextPage
-                    }
-                }
-            }
-        }
-    }
+    query = f"""
+    query GetProjectItems($owner: String!, $projectNumber: Int!, $status: String!, $after: String) {{
+      {owner_type}(login: $owner) {{
+        projectV2(number: $projectNumber) {{
+          id
+          title
+          items(first: 100, after: $after) {{
+            nodes {{
+              id
+              fieldValueByName(name: $status) {{
+                ... on ProjectV2ItemFieldSingleSelectValue {{
+                  id
+                  name
+                }}
+              }}
+              content {{
+                ... on Issue {{
+                  id
+                  title
+                  state
+                  url
+                  assignees(first: 10) {{
+                    nodes {{
+                      name
+                      email
+                      login
+                    }}
+                  }}
+                }}
+              }}
+            }}
+            pageInfo {{
+              endCursor
+              hasNextPage
+            }}
+          }}
+        }}
+      }}
+    }}
     """
+
     
     variables = {
         'owner': owner,
