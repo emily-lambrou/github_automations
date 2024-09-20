@@ -86,11 +86,10 @@ def notify_change_status():
             logger.info(f'Skipping {issue_title} as it is already in QA Testing.')
             continue
         else:
-            logger.info(f'Current status is NOT QA Testing for {issue_title}.')
             has_merged_pr = graphql.get_issue_has_merged_pr(issue_id)
             logger.info(f'This issue has merged PR? : {has_merged_pr}')
             if has_merged_pr:  
-                logger.info(f'Proceeding to update the status of {issue_title} to QA Testing as it contains a merged PR.')
+                logger.info(f'Proceeding to update the status to QA Testing as it contains a merged PR.')
 
 def main():
     logger.info('Process started...')
