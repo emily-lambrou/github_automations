@@ -27,6 +27,10 @@ def notify_change_status():
         return
 
     for issue in issues:
+        # Skip the issues if they are closed
+        if issue.get('state') == 'CLOSED':
+            continue
+
         # Ensure the issue contains content
         issue_content = issue.get('content', {})
         if not issue_content:
