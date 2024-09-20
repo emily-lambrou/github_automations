@@ -40,6 +40,10 @@ def notify_change_status():
 
         issue_title = issue.get('title', 'Unknown Title')
 
+        has_merged_pr = graphql.get_issue_has_merged_pr(issue_id)
+        logger.info(f'The issue has merged pr?: {has_merged_pr}')
+
+       
         # Call get_project_items if needed
         project_items = graphql.get_project_items(
             owner=config.repository_owner,
