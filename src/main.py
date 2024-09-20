@@ -122,10 +122,10 @@ def notify_change_status():
                             logger.info(f'Successfully updated issue {issue_id} to QA Testing.')
                         else:
                             logger.error(f'Failed to update issue {issue_id}.')
-                            
-                            break
-                        
+                        break  # Break out of the loop once updated
+
                 if not item_found:
+                    logger.warning(f'No matching item found for issue ID: {issue_id}.')
                     continue #  Skip the issue as it cannot be updated
 
                 
