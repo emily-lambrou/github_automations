@@ -285,6 +285,116 @@ def get_project_items(owner, owner_type, project_number, status_field_name, filt
         logging.error(f"Request error: {e}")
         return []
 
+def get_project_id_by_title(owner, project_title):
+    query = """
+    query($owner: String!, $projectTitle: String!) {
+      organization(login: $owner) {
+        projectsV2(first: 10, query: $projectTitle) {
+          nodes {
+            id
+            title
+          }
+        }
+      }
+    }
+    """
+    
+    variables = {
+        'owner': owner, 
+        'projectTitle': project_title
+    }
+
+    try:
+        response = requests.post(
+            config.api_endpoint,
+            json={"query": query, "variables": variables},
+            headers={"Authorization": f"Bearer {config.gh_token}"}
+        )
+    
+        data = response.json()
+
+        if 'errors' in data:
+            logging.error(f"GraphQL query errors: {data['errors']}")
+            return None
+
+        projects = data['data']['organization']['projectsV2']['nodes']
+        for project in projects:
+            if project['title'] == project_title:
+                return project['id']
+        return None
+
+    except requests.RequestException as e:
+        logging.error(f"Request error: {e}")
+        return None
+
+def get_status_field_id(project_id, status_field_name):
+    query = """
+    query($projectId: ID!) {
+      node(id: $projectId) {
+        ... on ProjectV2 {
+          fields(first: 100) {
+            nodes {
+              __typename
+              ... on ProjectV2SingleSelectField {
+                id
+                name
+                options {
+                  id
+                  name
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    """
+    variables = {
+        'projectId': project_id
+    }
+
+    try:
+        response = requests.post(
+            config.api_endpoint,
+            json={"query": query, "variables": variables},
+            headers={"Authorization": f"Bearer {config.gh_token}"}
+        )
+        
+        data = response.json()
+
+        # Check for errors in the response
+        if 'errors' in data:
+            logging.error(f"GraphQL query errors: {data['errors']}")
+            return None
+        
+        # Ensure 'data' is in the response and is valid
+        if 'data' not in data or 'node' not in data['data'] or 'fields' not in data['data']['node']:
+            logging.error(f"Unexpected response structure: {data}")
+            return None
+        
+        # Log the response for debugging
+        logging.debug(f"GraphQL response: {data}")
+
+        # Get fields from the response
+        fields = data['data']['node']['fields']['nodes']
+        for field in fields:
+            if field.get('name') == status_field_name and field['__typename'] == 'ProjectV2SingleSelectField':
+                return field['id']
+        
+        logging.warning(f"Status field '{status_field_name}' not found.")
+        return None
+
+    except requests.RequestException as e:
+        logging.error(f"Request error: {e}")
+        return None
+
+
+
+
+
+
+
+
 
 def get_issue_has_merged_pr(issue_id):
     query = """
