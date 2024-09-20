@@ -52,6 +52,7 @@ def notify_change_status():
 
         # Check if projectItems exists and is a list
         project_items = issue.get('projectItems', {})
+        
         if isinstance(project_items, dict):
             nodes = project_items.get('nodes', [])
             if nodes:
