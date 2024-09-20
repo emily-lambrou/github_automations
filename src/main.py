@@ -64,7 +64,7 @@ def notify_change_status():
     )
 
     # Log fetched project items
-    logger.info(f'Fetched project items: {json.dumps(items, indent=4)}')
+    # logger.info(f'Fetched project items: {json.dumps(items, indent=4)}')
 
     for issue in issues:
         # Skip the issues if they are closed
@@ -74,16 +74,14 @@ def notify_change_status():
         # Ensure the issue contains content
         issue_content = issue.get('content', {})
         if not issue_content:
-            logger.warning(f'Issue does not contain content: {issue}')
             continue
 
         issue_id = issue_content.get('id')
         if not issue_id:
-            logger.warning('Issue does not have an ID')
             continue
 
         # Debugging output for the issue
-        logger.info("Issue object: %s", json.dumps(issue, indent=4))
+        # logger.info("Issue object: %s", json.dumps(issue, indent=4))
 
         # Safely get the fieldValueByName and current status
         field_value = issue.get('fieldValueByName')
@@ -93,7 +91,6 @@ def notify_change_status():
         issue_title = issue.get('title')
 
         if current_status == 'QA Testing':
-            logger.info(f'Skipping issue as it is already in QA Testing.')
             continue
         else:
             has_merged_pr = graphql.get_issue_has_merged_pr(issue_id)
@@ -104,8 +101,6 @@ def notify_change_status():
                 # Find the item id for the issue
                 item_found = False
                 for item in items:
-                    logger.info(f'Checking item: {json.dumps(item, indent=4)}')  # Log each item
-
                     if item.get('content') and item['content'].get('id') == issue_id:
                         item_id = item['id']
                         item_found = True
@@ -114,7 +109,6 @@ def notify_change_status():
                 logger.info(f'Item id for issue {issue_id}: {item_id}')
 
                 if not item_found:
-                    logger.error(f"Item ID not found for issue {issue_id} in project {project_title}.")
                     continue #  Skip the issue as it cannot be updated
 
                 # Proceed to update the status
