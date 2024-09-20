@@ -421,18 +421,16 @@ def get_item_id_by_issue_id(project_id, issue_id):
         data = response.json()
         project_items = data.get('data', {}).get('node', {}).get('items', {}).get('nodes', [])
         
-        # Iterate over the project items to find the matching `issue_id`
         for item in project_items:
-            # Check if 'content' exists and is an Issue with an 'id'
             if item.get('content') and item['content'].get('id') == issue_id:
                 return item['id']
         
-        # If no matching issue_id is found, return None
         return None
         
     except requests.RequestException as e:
         logging.error(f"Request error: {e}")
         return None
+
 
 def get_issue_has_merged_pr(issue_id):
     query = """
