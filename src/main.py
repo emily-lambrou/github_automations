@@ -91,6 +91,24 @@ def notify_change_status():
             if has_merged_pr:  
                 logger.info(f'Proceeding to update the status to QA Testing as it contains a merged PR.')
 
+        status_option_id = "MDM1OlByb2plY3RWMkl0ZW1GaWVsZFNpbmdsZVNlbGVjdFZhbHVlOTY2MTE=" 
+
+        logger.info('Getting item ID by issue ID...')
+
+        item_id = graphql.get_item_id_by_issue_id(
+            project_id=project_id,
+            issue_id=issue_id
+        )
+
+        logger.info(f'Printing the item id: {item_id}')
+
+     
+        if not item_id:
+            logging.error(f"Item id not found in project {project_title}.")
+            return None
+
+
+
 def main():
     logger.info('Process started...')
     if config.dry_run:
