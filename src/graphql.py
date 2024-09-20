@@ -193,100 +193,6 @@ def get_project_issues(owner, owner_type, project_number, status_field_name, fil
         logging.error(f"Request error: {e}")
         return []
 
-
-def get_project_items(owner, owner_type, project_number, status_field_name, filters=None, after=None, items=None):
-    query = """
-    query GetProjectItems($owner: String!, $projectNumber: Int!, $status: String!, $after: String) {
-      {owner_type}(login: $owner) {
-        projectV2(number: $projectNumber) {
-          id
-          title
-          items(first: 100, after: $after) {
-            nodes {
-              id
-              fieldValueByName(name: $status) {
-                ... on ProjectV2ItemFieldSingleSelectValue {
-                  id
-                  name
-                }
-              }
-              content {
-                ... on Issue {
-                  id
-                  title
-                  state
-                  url
-                  assignees(first: 10) {
-                    nodes {
-                      name
-                      email
-                      login
-                    }
-                  }
-                }
-              }
-            }
-            pageInfo {
-              endCursor
-              hasNextPage
-            }
-          }
-        }
-      }
-    }
-    """
-    
-    variables = {
-        'owner': owner,
-        'projectNumber': project_number,
-        'status': status_field_name,
-        'after': after
-    }
-
-    try:
-        response = requests.post(
-            config.api_endpoint,
-            json={"query": query, "variables": variables},
-            headers={"Authorization": f"Bearer {config.gh_token}"}
-        )
-
-        data = response.json()
-
-        if 'errors' in data:
-            logging.error(f"GraphQL query errors: {data['errors']}")
-            return []
-
-        # Extract project items
-        owner_data = data.get('data', {}).get(owner_type, {})
-        project_data = owner_data.get('projectV2', {})
-        items_data = project_data.get('items', {})
-        pageinfo = items_data.get('pageInfo', {})
-        nodes = items_data.get('nodes', [])
-
-        if items is None:
-            items = []
-
-        items += nodes
-
-        # Fetch more pages if available
-        if pageinfo.get('hasNextPage'):
-            return get_project_items(
-                owner=owner,
-                owner_type=owner_type,
-                project_number=project_number,
-                status_field_name=status_field_name,
-                after=pageinfo.get('endCursor'),
-                items=items
-            )
-
-        return items
-
-    except requests.RequestException as e:
-        logging.error(f"Request error: {e}")
-        return []
-
-
-
 def get_project_items(owner, owner_type, project_number, status_field_name, filters=None, after=None, items=None):
     query = """
     query GetProjectItems($owner: String!, $projectNumber: Int!, $status: String!, $after: String) {
@@ -375,19 +281,6 @@ def get_project_items(owner, owner_type, project_number, status_field_name, filt
     except requests.RequestException as e:
         logging.error(f"Request error: {e}")
         return []
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 def get_project_id_by_title(owner, project_title):
