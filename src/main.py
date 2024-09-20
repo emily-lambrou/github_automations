@@ -49,7 +49,7 @@ def notify_change_status():
             continue
 
         # Get the project item from issue
-        project_items = issue.get('projectItems', {}).get('nodes', [])
+        project_items = issue_content.get('projectItems', {}).get('nodes', [])
         if not project_items:
             logger.warning(f'No project items found for issue {issue_id}')
             continue
