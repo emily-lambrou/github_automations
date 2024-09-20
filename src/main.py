@@ -61,6 +61,8 @@ def notify_change_status():
             continue
 
         current_status = project_item['fieldValueByName'].get('name')
+        logger.info(f'The current status of this issue is: {current_status}')
+        
         if not current_status:
             logger.warning(f'No status found in fieldValueByName for project item: {project_item}')
             continue
@@ -68,6 +70,7 @@ def notify_change_status():
         if current_status == 'QA Testing':
             continue # Skip this issue and move to the next since it is already in QA Testing, no need to update
         else:
+            logger.info(f'Current status is NOT QA Testing')
             has_merged_pr = graphql.get_issue_has_merged_pr(issue_id)
             logger.info(f'This issue has merged PR? : {has_merged_pr}')
             if has_merged_pr:  
