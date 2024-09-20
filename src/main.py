@@ -50,7 +50,7 @@ def notify_change_status():
         current_status = field_value.get('name') if field_value else None
         logger.info(f'The current status of this issue is: {current_status}')
         
-        issue_title = issue.get('title', 'Unknown Title')
+        issue_title = issue.get('title')
 
         if current_status == 'QA Testing':
             logger.info(f'Skipping {issue_title} as it is already in QA Testing.')
