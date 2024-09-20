@@ -388,13 +388,51 @@ def get_status_field_id(project_id, status_field_name):
         logging.error(f"Request error: {e}")
         return None
 
-
-
-
-
-
-
-
+def get_item_id_by_issue_id(project_id, issue_id):
+    query = """
+    query($projectId: ID!) {
+      node(id: $projectId) {
+        ... on ProjectV2 {
+          items(first: 100) {
+            nodes {
+              id
+              content {
+                ... on Issue {
+                  id
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    """
+    variables = {
+        "projectId": project_id
+    }
+    
+    try:
+        response = requests.post(
+            config.api_endpoint,
+            json={"query": query, "variables": variables},
+            headers={"Authorization": f"Bearer {config.gh_token}"}
+        )
+        
+        data = response.json()
+        project_items = data.get('data', {}).get('node', {}).get('items', {}).get('nodes', [])
+        
+        # Iterate over the project items to find the matching `issue_id`
+        for item in project_items:
+            # Check if 'content' exists and is an Issue with an 'id'
+            if item.get('content') and item['content'].get('id') == issue_id:
+                return item['id']
+        
+        # If no matching issue_id is found, return None
+        return None
+        
+    except requests.RequestException as e:
+        logging.error(f"Request error: {e}")
+        return None
 
 def get_issue_has_merged_pr(issue_id):
     query = """
@@ -479,6 +517,43 @@ def get_issue_has_merged_pr(issue_id):
         return False
 
 
+def update_issue_status_to_qa_testing(owner, project_title, project_id, status_field_id, item_id, status_option_id):
+    mutation = """
+    mutation UpdateIssueStatus($projectId: ID!, $itemId: ID!, $statusFieldId: ID!, $statusOptionId: ID!) {
+        updateProjectV2ItemFieldValue(input: {
+            projectId: $projectId,
+            itemId: $itemId,
+            fieldId: $statusFieldId,
+            value: { singleSelectOptionId: $statusOptionId }
+        }) {
+            projectV2Item {
+                id
+            }
+        }
+    }
+    """
+    variables = {
+        'projectId': project_id,
+        'itemId': item_id,
+        'statusFieldId': status_field_id,
+        'statusOptionId': status_option_id
+    }
+
+    try:
+        response = requests.post(
+            config.api_endpoint,
+            json={"query": mutation, "variables": variables},
+            headers={"Authorization": f"Bearer {config.gh_token}"}
+        )
+        data = response.json()
+        if 'errors' in data:
+            logging.error(f"GraphQL mutation errors: {data['errors']}")
+            return None
+        logging.info(f"Updated issue status to '{status_option_id}' for item ID: {item_id}")
+        return data.get('data')
+    except requests.RequestException as e:
+        logging.error(f"Request error: {e}")
+        return None
 
 
 
