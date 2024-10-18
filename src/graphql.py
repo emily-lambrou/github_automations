@@ -193,6 +193,47 @@ def get_project_issues(owner, owner_type, project_number, status_field_name, fil
         logging.error(f"Request error: {e}")
         return []
 
+
+def get_issue_labels(issue_id):
+    query = """
+    query GetIssueLabels($issueId: ID!) {
+        node(id: $issueId) {
+            ... on Issue {
+                labels(first: 10) {
+                    nodes {
+                        name
+                    }
+                }
+            }
+        }
+    }
+    """
+
+    variables = {
+        'issueId': issue_id
+    }
+
+    try:
+        response = requests.post(
+            config.api_endpoint,
+            json={"query": query, "variables": variables},
+            headers={"Authorization": f"Bearer {config.gh_token}"}
+        )
+
+        data = response.json()
+
+        if 'errors' in data:
+            logging.error(f"GraphQL query errors: {data['errors']}")
+            return None
+
+        labels = data.get('data', {}).get('node', {}).get('labels', {}).get('nodes', [])
+        return [label['name'] for label in labels]
+
+    except requests.RequestException as e:
+        logging.error(f"Request error: {e}")
+        return None
+
+
 def get_project_items(owner, owner_type, project_number, status_field_name, filters=None, after=None, items=None):
     query = f"""
     query GetProjectItems($owner: String!, $projectNumber: Int!, $status: String!, $after: String) {{
