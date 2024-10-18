@@ -13,6 +13,25 @@ def check_comment_exists(issue_id, comment_text):
             return True
     return False
 
+
+def issue_has_label(issue, label_name="hotfix"):
+    """
+    Checks if an issue contains a specific label.
+    
+    Args:
+        issue (dict): The issue object from the GraphQL query.
+        label_name (str): The name of the label to check (default is "hotfix").
+    
+    Returns:
+        bool: True if the issue has the specified label, otherwise False.
+    """
+    labels = issue.get('labels', {}).get('nodes', [])
+    for label in labels:
+        if label.get('name') == label_name:
+            return True
+    return False
+    
+
 def notify_change_status():
     # Fetch issues based on whether it's an enterprise or not
     if config.is_enterprise:
