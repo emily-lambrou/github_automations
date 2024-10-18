@@ -430,6 +430,71 @@ def get_item_id_by_issue_id(project_id, issue_id):
         logging.error(f"Request error: {e}")
         return None
 
+def get_qatesting_status_option_id(project_id, status_field_name):
+    query = """
+    query($projectId: ID!) {
+      node(id: $projectId) {
+        ... on ProjectV2 {
+          fields(first: 100) {
+            nodes {
+              __typename
+              ... on ProjectV2SingleSelectField {
+                id
+                name
+                options {
+                  id
+                  name
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    """
+    variables = {
+        'projectId': project_id
+    }
+
+    try:
+        response = requests.post(
+            config.api_endpoint,
+            json={"query": query, "variables": variables},
+            headers={"Authorization": f"Bearer {config.gh_token}"}
+        )
+        
+        data = response.json()
+
+        # Check for errors in the response
+        if 'errors' in data:
+            logging.error(f"GraphQL query errors: {data['errors']}")
+            return None
+        
+        # Ensure 'data' is in the response and is valid
+        if 'data' not in data or 'node' not in data['data'] or 'fields' not in data['data']['node']:
+            logging.error(f"Unexpected response structure: {data}")
+            return None
+        
+        # Log the response for debugging
+        logging.debug(f"GraphQL response: {data}")
+
+        # Get fields from the response
+        fields = data['data']['node']['fields']['nodes']
+        for field in fields:
+            if field.get('name') == status_field_name and field['__typename'] == 'ProjectV2SingleSelectField':
+                # Look for the specific option "QA Testing"
+                for option in field.get('options', []):
+                    if option['name'] == "QA Testing":
+                        option_id = option['id']
+                        # logging.info(f"QA Testing Status Option ID: {option_id}")  # Log the ID for confirmation
+                        return option_id
+        
+        logging.warning(f"Status 'QA Testing' not found.")
+        return None
+
+    except requests.RequestException as e:
+        logging.error(f"Request error: {e}")
+        return None
 
 def get_issue_has_merged_pr(issue_id):
     query = """
@@ -513,14 +578,17 @@ def get_issue_has_merged_pr(issue_id):
         logging.error(f"Request error: {e}")
         return False
 
+
 def update_issue_status_to_qa_testing(owner, project_title, project_id, status_field_id, item_id, status_option_id):
     mutation = """
-    mutation UpdateIssueStatus($projectId: ID!, $itemId: ID!, $statusFieldId: ID!, $statusOptionId: ID!) {
+    mutation UpdateIssueStatus($projectId: ID!, $itemId: ID!, $statusFieldId: ID!, $statusOptionId: String!) {
         updateProjectV2ItemFieldValue(input: {
             projectId: $projectId,
             itemId: $itemId,
             fieldId: $statusFieldId,
-            value: { singleSelectOptionId: $statusOptionId }
+            value: {
+                singleSelectOptionId: $statusOptionId  
+            }
         }) {
             projectV2Item {
                 id
@@ -528,11 +596,12 @@ def update_issue_status_to_qa_testing(owner, project_title, project_id, status_f
         }
     }
     """
+    
     variables = {
-        'projectId': project_id,
-        'itemId': item_id,
-        'statusFieldId': status_field_id,
-        'statusOptionId': status_option_id
+        'projectId': project_id,   
+        'itemId': item_id,         
+        'statusFieldId': status_field_id, 
+        'statusOptionId': status_option_id  
     }
 
     try:
@@ -541,18 +610,76 @@ def update_issue_status_to_qa_testing(owner, project_title, project_id, status_f
             json={"query": mutation, "variables": variables},
             headers={"Authorization": f"Bearer {config.gh_token}"}
         )
+        
         data = response.json()
         if 'errors' in data:
             logging.error(f"GraphQL mutation errors: {data['errors']}")
             return None
-        logging.info(f"Updated issue status to '{status_option_id}' for item ID: {item_id}")
         return data.get('data')
+
     except requests.RequestException as e:
         logging.error(f"Request error: {e}")
         return None
 
 
+def get_issue_comments(issue_id):
+    query = """
+    query GetIssueComments($issueId: ID!, $afterCursor: String) {
+        node(id: $issueId) {
+            ... on Issue {
+                comments(first: 100, after: $afterCursor) {
+                    nodes {
+                        body
+                        createdAt
+                        author {
+                            login
+                        }
+                    }
+                    pageInfo {
+                        endCursor
+                        hasNextPage
+                    }
+                }
+            }
+        }
+    }
+    """
 
+    variables = {
+        'issueId': issue_id,
+        'afterCursor': None
+    }
 
+    all_comments = []
 
+    try:
+        while True:
+            response = requests.post(
+                config.api_endpoint,
+                json={"query": query, "variables": variables},
+                headers={"Authorization": f"Bearer {config.gh_token}"}
+            )
+
+            data = response.json()
+
+            if 'errors' in data:
+                logging.error(f"GraphQL query errors: {data['errors']}")
+                break
+
+            comments_data = data.get('data', {}).get('node', {}).get('comments', {})
+            comments = comments_data.get('nodes', [])
+            all_comments.extend(comments)
+
+            pageinfo = comments_data.get('pageInfo', {})
+            if not pageinfo.get('hasNextPage'):
+                break
+
+            # Set the cursor for the next page
+            variables['afterCursor'] = pageinfo.get('endCursor')
+
+        return all_comments
+
+    except requests.RequestException as e:
+        logging.error(f"Request error: {e}")
+        return []
 
