@@ -579,6 +579,94 @@ def get_issue_has_merged_pr(issue_id):
         return False
 
 
+def get_issue_merged_pr_and_branch(issue_id):
+    query = """
+    query GetIssueTimeline($issueId: ID!, $afterCursor: String) {
+        node(id: $issueId) {
+            ... on Issue {
+                timelineItems(first: 100, after: $afterCursor) {
+                    nodes {
+                        __typename
+                        ... on CrossReferencedEvent {
+                            source {
+                                ... on PullRequest {
+                                    id
+                                    number
+                                    mergedAt
+                                    baseRefName   # Target branch (e.g., dev, master)
+                                    headRefName   # Source branch (e.g., feature branch)
+                                    url
+                                }
+                            }
+                        }
+                    }
+                    pageInfo {
+                        endCursor
+                        hasNextPage
+                    }
+                }
+            }
+        }
+    }
+    """
+    
+    variables = {
+        'issueId': issue_id,
+        'afterCursor': None
+    }
+
+    try:
+        while True:
+            response = requests.post(
+                config.api_endpoint,
+                json={"query": query, "variables": variables},
+                headers={
+                    "Authorization": f"Bearer {config.gh_token}",
+                    "Accept": "application/vnd.github.v4+json"
+                }
+            )
+
+            data = response.json()
+
+            # Error handling for GraphQL errors
+            if 'errors' in data:
+                logging.error(f"GraphQL query errors: {data['errors']}")
+                return None, None  # Return None for both branch and merged status on error
+
+            # Navigate to the timeline items in the response
+            timeline_data = data.get('data', {}).get('node', {}).get('timelineItems', {})
+            if not timeline_data:
+                logging.warning(f"No timeline items found for issue ID: {issue_id}")
+                return None, None
+
+            timeline_items = timeline_data.get('nodes', [])
+
+            # Check each timeline item for a merged pull request
+            for item in timeline_items:
+                if item['__typename'] == 'CrossReferencedEvent':
+                    pr = item.get('source')
+                    if pr and isinstance(pr, dict) and pr.get('mergedAt'):
+                        # Return both merged state and base branch name
+                        base_branch = pr.get('baseRefName')
+                        head_branch = pr.get('headRefName')
+                        return base_branch, head_branch  # Target and source branches
+
+            # Check for pagination
+            pageinfo = timeline_data.get('pageInfo', {})
+            if not pageinfo.get('hasNextPage'):
+                break
+
+            # Set the cursor for the next page
+            variables['afterCursor'] = pageinfo.get('endCursor')
+
+        # No merged pull request found in the timeline
+        return None, None
+
+    except requests.RequestException as e:
+        logging.error(f"Request error: {e}")
+        return None, None
+
+
 def update_issue_status_to_qa_testing(owner, project_title, project_id, status_field_id, item_id, status_option_id):
     mutation = """
     mutation UpdateIssueStatus($projectId: ID!, $itemId: ID!, $statusFieldId: ID!, $statusOptionId: String!) {
