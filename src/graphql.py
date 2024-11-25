@@ -3,9 +3,9 @@ import logging
 import requests
 import config
 import json
+from datetime import datetime
 
 logging.basicConfig(level=logging.DEBUG)  # Ensure logging is set up
-
 
 def get_repo_issues(owner, repository, duedate_field_name, after=None, issues=None):
     query = """
@@ -80,7 +80,6 @@ def get_repo_issues(owner, repository, duedate_field_name, after=None, issues=No
         )
 
     return issues
-
 
 
 def get_project_issues(owner, owner_type, project_number, duedate_field_name, filters=None, after=None, issues=None):
@@ -173,9 +172,6 @@ def get_project_issues(owner, owner_type, project_number, duedate_field_name, fi
 
     return issues
 
-
-
-
 # Fetch Project ID by Title
 def get_project_id_by_title(owner, project_title):
     query = """
@@ -217,6 +213,7 @@ def get_project_id_by_title(owner, project_title):
         logging.error(f"Request error: {e}")
         return None
 
+# Fetch and map release options by date range
 def get_release_field_options(project_id):
     query = """
     query($projectId: ID!) {
@@ -253,23 +250,49 @@ def get_release_field_options(project_id):
             logging.error(f"GraphQL query errors: {data['errors']}")
             return None
 
-        # Debugging: Log the raw fields structure
         fields = data['data']['node']['fields']['nodes']
-        logging.debug(f"Fetched fields: {json.dumps(fields, indent=2)}")
+        release_options = {}
 
         # Iterate through the fields to find the Releases field
         for field in fields:
-            field_name = field.get('name')  
-            if field_name == "Release":  
-                return {option['name']: option['id'] for option in field.get('options', [])}
+            field_name = field.get('name')
+            if field_name == "Release":
+                for option in field.get('options', []):
+                    release_name = option['name']
+                    release_id = option['id']
+                    
+                    # Try to parse the date range from the release name, e.g., "Nov 13 - Dec 06, 2024"
+                    date_range = extract_date_range_from_release_name(release_name)
+                    if date_range:
+                        release_options[release_name] = {
+                            'id': release_id,
+                            'start_date': date_range[0],
+                            'end_date': date_range[1]
+                        }
 
-        logging.warning("Releases field not found in the project.")
-        return None
+        if not release_options:
+            logging.warning("No release options found in the project.")
+        return release_options
 
     except requests.RequestException as e:
         logging.error(f"Request error: {e}")
         return None
 
+# Extract date range from the release name (e.g., "Nov 13 - Dec 06, 2024 (v0.8.9)")
+def extract_date_range_from_release_name(release_name):
+    # Assuming the date range is in the format "Nov 13 - Dec 06, 2024"
+    try:
+        date_part = release_name.split(" (")[0]  # Remove version part
+        start_date_str, end_date_str = date_part.split(" - ")
+        
+        # Parse the date strings
+        start_date = datetime.strptime(start_date_str + ", 2024", "%b %d, %Y").date()
+        end_date = datetime.strptime(end_date_str + ", 2024", "%b %d, %Y").date()
+        
+        return (start_date, end_date)
+    except Exception as e:
+        logging.error(f"Failed to extract date range from release name: {release_name}. Error: {e}")
+        return None
 
 # Update the release field for the issue
 def update_issue_release(issue_id, release_option_id, project_id, release_field_id):
