@@ -84,7 +84,7 @@ def get_release_field_options(project_id):
 
         fields = data['data']['node']['fields']['nodes']
         for field in fields:
-            if field['name'] == "Releases":  # Match your field name
+            if field['name'] == "Release":  # Match your field name
                 logging.info(f"Found 'Releases' field with options.")
                 return {option['name']: option['id'] for option in field['options']}
 
