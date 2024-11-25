@@ -46,7 +46,6 @@ def get_project_id_by_title(owner, project_title):
         logging.error(f"Request error: {e}")
         return None
 
-# Fetch Release Field Options
 def get_release_field_options(project_id):
     query = """
     query($projectId: ID!) {
@@ -54,6 +53,7 @@ def get_release_field_options(project_id):
         ... on ProjectV2 {
           fields(first: 50) {
             nodes {
+              __typename
               ... on ProjectV2SingleSelectField {
                 name
                 options {
@@ -67,7 +67,6 @@ def get_release_field_options(project_id):
       }
     }
     """
-    
     variables = {'projectId': project_id}
 
     try:
@@ -76,17 +75,22 @@ def get_release_field_options(project_id):
             json={"query": query, "variables": variables},
             headers={"Authorization": f"Bearer {config.gh_token}"}
         )
+        response.raise_for_status()
         data = response.json()
 
         if 'errors' in data:
             logging.error(f"GraphQL query errors: {data['errors']}")
             return None
 
+        # Debugging: Log the raw fields structure
         fields = data['data']['node']['fields']['nodes']
+        logging.debug(f"Fetched fields: {json.dumps(fields, indent=2)}")
+
+        # Iterate through the fields to find the Releases field
         for field in fields:
-            if field['name'] == "Release":  # Match your field name
-                logging.info(f"Found 'Releases' field with options.")
-                return {option['name']: option['id'] for option in field['options']}
+            field_name = field.get('name')  
+            if field_name == "Release":  
+                return {option['name']: option['id'] for option in field.get('options', [])}
 
         logging.warning("Releases field not found in the project.")
         return None
@@ -94,3 +98,4 @@ def get_release_field_options(project_id):
     except requests.RequestException as e:
         logging.error(f"Request error: {e}")
         return None
+
