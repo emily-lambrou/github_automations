@@ -3,6 +3,19 @@ import config
 import graphql
 from datetime import datetime
 
+
+def find_matching_release(release_options, due_date):
+    """
+    Find the correct release based on the due date.
+    :param release_options: Dictionary of release options with date ranges
+    :param due_date: The due date to match
+    :return: Matching release option or None
+    """
+    for release_name, release_data in release_options.items():
+        if release_data['start_date'] <= due_date <= release_data['end_date']:
+            return release_data
+    return None
+
 def release_based_on_duedate():
     if config.is_enterprise:
         issues = graphql.get_project_issues(
@@ -118,17 +131,6 @@ def release_based_on_duedate():
             except (ValueError, TypeError):
                 continue
 
-def find_matching_release(release_options, due_date):
-    """
-    Find the correct release based on the due date.
-    :param release_options: Dictionary of release options with date ranges
-    :param due_date: The due date to match
-    :return: Matching release option or None
-    """
-    for release_name, release_data in release_options.items():
-        if release_data['start_date'] <= due_date <= release_data['end_date']:
-            return release_data
-    return None
 
 def main():
     logger.info('Process started...')
