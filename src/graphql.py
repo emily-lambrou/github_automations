@@ -278,21 +278,23 @@ def get_release_field_options(project_id):
         logging.error(f"Request error: {e}")
         return None
 
-# Extract date range from the release name (e.g., "Nov 13 - Dec 06, 2024 (v0.8.9)")
 def extract_date_range_from_release_name(release_name):
-    # Assuming the date range is in the format "Nov 13 - Dec 06, 2024"
-    try:
-        date_part = release_name.split(" (")[0]  # Remove version part
-        start_date_str, end_date_str = date_part.split(" - ")
+    # Regex to match date ranges like "Nov 13 - Dec 06" or "Nov 13 - Dec 06, 2024"
+    date_range_pattern = r"([a-zA-Z]+ \d{1,2}) - ([a-zA-Z]+ \d{1,2})(, (\d{4}))?"
+    match = re.search(date_range_pattern, release_name)
+
+    if match:
+        start_date_str = match.group(1)  # e.g., "Nov 13"
+        end_date_str = match.group(2)    # e.g., "Dec 06"
+        year = match.group(4)  # This will be None if there's no year
+
+        # If a year is provided, append it to both start and end dates
+        if year:
+            start_date_str += " " + year  # e.g., "Nov 13 2024"
+            end_date_str += " " + year    # e.g., "Dec 06 2024"
         
-        # Parse the date strings
-        start_date = datetime.strptime(start_date_str + ", 2024", "%b %d, %Y").date()
-        end_date = datetime.strptime(end_date_str + ", 2024", "%b %d, %Y").date()
-        
-        return (start_date, end_date)
-    except Exception as e:
-        logging.error(f"Failed to extract date range from release name: {release_name}. Error: {e}")
-        return None
+        return start_date_str, end_date_str
+    return None
 
 def get_release_field_id(project_id, release_field_name):
     query = """
