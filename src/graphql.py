@@ -5,41 +5,92 @@ import config
 
 logging.basicConfig(level=logging.DEBUG)  # Ensure logging is set up
 
+# Fetch Project ID by Title
+def get_project_id_by_title(owner, project_title):
+    query = """
+    query($owner: String!, $projectTitle: String!) {
+      organization(login: $owner) {
+        projectsV2(first: 10, query: $projectTitle) {
+          nodes {
+            id
+            title
+          }
+        }
+      }
+    }
+    """
+    
+    variables = {'owner': owner, 'projectTitle': project_title}
 
-# Define the query to fetch release field options
-QUERY = """
-query {
-  node(id: "YOUR_PROJECT_ID") {
-    ... on ProjectV2 {
-      fields(first: 50) {
-        nodes {
-          ... on ProjectV2SingleSelectField {
-            name
-            options {
-              id
-              name
+    try:
+        response = requests.post(
+            config.api_endpoint,
+            json={"query": query, "variables": variables},
+            headers={"Authorization": f"Bearer {config.gh_token}"}
+        )
+        data = response.json()
+
+        if 'errors' in data:
+            logging.error(f"GraphQL query errors: {data['errors']}")
+            return None
+
+        projects = data['data']['organization']['projectsV2']['nodes']
+        for project in projects:
+            if project['title'] == project_title:
+                logging.info(f"Found project '{project_title}' with ID: {project['id']}")
+                return project['id']
+        logging.warning(f"Project '{project_title}' not found.")
+        return None
+
+    except requests.RequestException as e:
+        logging.error(f"Request error: {e}")
+        return None
+
+# Fetch Release Field Options
+def get_release_field_options(project_id):
+    query = """
+    query($projectId: ID!) {
+      node(id: $projectId) {
+        ... on ProjectV2 {
+          fields(first: 50) {
+            nodes {
+              ... on ProjectV2SingleSelectField {
+                name
+                options {
+                  id
+                  name
+                }
+              }
             }
           }
         }
       }
     }
-  }
-}
-"""
+    """
+    
+    variables = {'projectId': project_id}
 
-# Fetch field options
-def get_release_field_options():
-    response = requests.post(API_URL, json={"query": query}, headers=headers)
-    if response.status_code == 200:
-        fields = response.json()["data"]["node"]["fields"]["nodes"]
+    try:
+        response = requests.post(
+            config.api_endpoint,
+            json={"query": query, "variables": variables},
+            headers={"Authorization": f"Bearer {config.gh_token}"}
+        )
+        data = response.json()
+
+        if 'errors' in data:
+            logging.error(f"GraphQL query errors: {data['errors']}")
+            return None
+
+        fields = data['data']['node']['fields']['nodes']
         for field in fields:
-            if field["name"] == "Releases":  # Match your field name
-                return {option["name"]: option["id"] for option in field["options"]}
-    else:
-        print(f"Error fetching field options: {response.status_code}, {response.text}")
+            if field['name'] == "Releases":  # Match your field name
+                logging.info(f"Found 'Releases' field with options.")
+                return {option['name']: option['id'] for option in field['options']}
+
+        logging.warning("Releases field not found in the project.")
         return None
 
-# Example usage
-release_options = get_release_field_options()
-if release_options:
-    print("Release Options (Name -> ID):", release_options)
+    except requests.RequestException as e:
+        logging.error(f"Request error: {e}")
+        return None
