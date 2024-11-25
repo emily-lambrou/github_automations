@@ -294,7 +294,6 @@ def extract_date_range_from_release_name(release_name):
         logging.error(f"Failed to extract date range from release name: {release_name}. Error: {e}")
         return None
 
-
 def get_release_field_id(project_id, release_field_name):
     query = """
     query($projectId: ID!) {
@@ -349,7 +348,7 @@ def get_release_field_id(project_id, release_field_name):
             if field.get('name') == release_field_name and field['__typename'] == 'ProjectV2SingleSelectField':
                 return field['id']
         
-        logging.warning(f"Status field '{release_field_name}' not found.")
+        logging.warning(f"Release field '{release_field_name}' not found.")
         return None
 
     except requests.RequestException as e:
