@@ -293,11 +293,16 @@ def extract_date_range_from_release_name(release_name):
         
         return start_month_day, end_month_day
 
-    # Handle case where no date range is found
+    # Case when no date range is found
     logging.warning(f"No date range found in release name: {release_name}")
+    
+    # Check if there was no date at all
+    if re.search(r"\d{1,2}", release_name):  # If there are numbers, but no date range
+        logging.warning(f"Partial date found but not in expected range format: {release_name}")
+    else:
+        logging.warning(f"No date or recognizable format found in release name: {release_name}")
+    
     return None
-
-
 
 def get_release_field_id(project_id, release_field_name):
     query = """
