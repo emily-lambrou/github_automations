@@ -1,18 +1,17 @@
 from logger import logger
-import logging
-import json
-import requests
 import config
 import graphql
 
-
 def get_release_fields():
-    project_title = 'Test'
-
+    logger.info('Fetching release fields...')
+    
     release_options = graphql.get_release_field_options()
     if release_options:
-    print("Release Options (Name -> ID):", release_options)
-
+        logger.info("Release Options (Name -> ID):")
+        for name, option_id in release_options.items():
+            logger.info(f"{name} -> {option_id}")
+    else:
+        logger.error("Failed to fetch release options.")
 
 def main():
     logger.info('Process started...')
