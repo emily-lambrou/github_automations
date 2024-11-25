@@ -3,6 +3,8 @@ import logging
 import requests
 import config
 import json
+import re
+import logger
 from datetime import datetime
 
 logging.basicConfig(level=logging.DEBUG)  # Ensure logging is set up
@@ -278,28 +280,23 @@ def get_release_field_options(project_id):
         logging.error(f"Request error: {e}")
         return None
 
-import re
 
 def extract_date_range_from_release_name(release_name):
-    # Regex to match date ranges like "Nov 13 - Dec 06" or "Nov 13 - Dec 06, 2024"
-    date_range_pattern = r"([a-zA-Z]+ \d{1,2}) - ([a-zA-Z]+ \d{1,2})(, (\d{4}))?"
+    # Updated regex to capture date ranges like "Dec 09, 2024 - Jan 06, 2025" and ignore trailing version numbers
+    date_range_pattern = r"([a-zA-Z]+ \d{1,2}),? (\d{4})? - ([a-zA-Z]+ \d{1,2}),? (\d{4})?(\s?\(v[^\)]+\))?"
+    
     match = re.search(date_range_pattern, release_name)
-
+    
     if match:
-        start_date_str = match.group(1)  # e.g., "Nov 13"
-        end_date_str = match.group(2)    # e.g., "Dec 06"
-        year = match.group(4)  # This will be None if there's no year
-
-        # If a year is provided, append it to both start and end dates
-        if year:
-            start_date_str += " " + year  # e.g., "Nov 13 2024"
-            end_date_str += " " + year    # e.g., "Dec 06 2024"
+        start_month_day = match.group(1) + " " + match.group(2) if match.group(2) else match.group(1)
+        end_month_day = match.group(3) + " " + match.group(4) if match.group(4) else match.group(3)
         
-        return start_date_str, end_date_str
+        return start_month_day, end_month_day
 
     # Handle case where no date range is found
     logging.warning(f"No date range found in release name: {release_name}")
     return None
+
 
 
 def get_release_field_id(project_id, release_field_name):
