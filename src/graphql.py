@@ -270,3 +270,46 @@ def get_release_field_options(project_id):
         logging.error(f"Request error: {e}")
         return None
 
+
+# Update the release field for the issue
+def update_issue_release(issue_id, release_option_id, project_id, release_field_id):
+    mutation = """
+    mutation($issueId: ID!, $releaseOptionId: ID!, $projectId: ID!, $releaseFieldId: ID!) {
+      updateProjectV2ItemFieldValue(input: {
+        projectId: $projectId,
+        itemId: $issueId,
+        fieldId: $releaseFieldId,
+        value: {id: $releaseOptionId}
+      }) {
+        projectV2Item {
+          id
+        }
+      }
+    }
+    """
+    variables = {
+        "issueId": issue_id,
+        "releaseOptionId": release_option_id,
+        "projectId": project_id,
+        "releaseFieldId": release_field_id
+    }
+
+    try:
+        response = requests.post(
+            config.api_endpoint,
+            json={"query": mutation, "variables": variables},
+            headers={"Authorization": f"Bearer {config.gh_token}"}
+        )
+        response.raise_for_status()
+        data = response.json()
+
+        if 'errors' in data:
+            logging.error(f"Error updating release field: {data['errors']}")
+            return False
+
+        logging.info(f"Successfully updated issue {issue_id} to the release option.")
+        return True
+
+    except requests.RequestException as e:
+        logging.error(f"Request error: {e}")
+        return False
