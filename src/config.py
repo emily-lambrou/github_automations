@@ -12,4 +12,6 @@ gh_token = os.environ['INPUT_GH_TOKEN']
 project_number = int(os.environ['INPUT_PROJECT_NUMBER'])
 project_title = os.environ['INPUT_PROJECT_TITLE']
 api_endpoint = os.environ.get('GITHUB_GRAPHQL_URL', 'https://github.intranet.unicaf.org/api/graphql')
-status_field_name = os.environ['INPUT_STATUS_FIELD_NAME']
+duedate_field_name = os.environ['INPUT_DUEDATE_FIELD_NAME']
+release_field_name = os.environ['INPUT_RELEASE_FIELD_NAME']
+
