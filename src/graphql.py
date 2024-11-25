@@ -294,27 +294,135 @@ def extract_date_range_from_release_name(release_name):
         logging.error(f"Failed to extract date range from release name: {release_name}. Error: {e}")
         return None
 
-# Update the release field for the issue
-def update_issue_release(issue_id, release_option_id, project_id, release_field_id):
-    mutation = """
-    mutation($issueId: ID!, $releaseOptionId: ID!, $projectId: ID!, $releaseFieldId: ID!) {
-      updateProjectV2ItemFieldValue(input: {
-        projectId: $projectId,
-        itemId: $issueId,
-        fieldId: $releaseFieldId,
-        value: {id: $releaseOptionId}
-      }) {
-        projectV2Item {
-          id
+
+def get_release_field_id(project_id, release_field_name):
+    query = """
+    query($projectId: ID!) {
+      node(id: $projectId) {
+        ... on ProjectV2 {
+          fields(first: 100) {
+            nodes {
+              __typename
+              ... on ProjectV2SingleSelectField {
+                id
+                name
+                options {
+                  id
+                  name
+                }
+              }
+            }
+          }
         }
       }
     }
     """
     variables = {
-        "issueId": issue_id,
-        "releaseOptionId": release_option_id,
-        "projectId": project_id,
-        "releaseFieldId": release_field_id
+        'projectId': project_id
+    }
+
+    try:
+        response = requests.post(
+            config.api_endpoint,
+            json={"query": query, "variables": variables},
+            headers={"Authorization": f"Bearer {config.gh_token}"}
+        )
+        
+        data = response.json()
+
+        # Check for errors in the response
+        if 'errors' in data:
+            logging.error(f"GraphQL query errors: {data['errors']}")
+            return None
+        
+        # Ensure 'data' is in the response and is valid
+        if 'data' not in data or 'node' not in data['data'] or 'fields' not in data['data']['node']:
+            logging.error(f"Unexpected response structure: {data}")
+            return None
+        
+        # Log the response for debugging
+        logging.debug(f"GraphQL response: {data}")
+
+        # Get fields from the response
+        fields = data['data']['node']['fields']['nodes']
+        for field in fields:
+            if field.get('name') == release_field_name and field['__typename'] == 'ProjectV2SingleSelectField':
+                return field['id']
+        
+        logging.warning(f"Status field '{release_field_name}' not found.")
+        return None
+
+    except requests.RequestException as e:
+        logging.error(f"Request error: {e}")
+        return None
+
+def get_item_id_by_issue_id(project_id, issue_id):
+    query = """
+    query($projectId: ID!) {
+      node(id: $projectId) {
+        ... on ProjectV2 {
+          items(first: 100) {
+            nodes {
+              id
+              content {
+                ... on Issue {
+                  id
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    """
+    variables = {
+        "projectId": project_id
+    }
+    
+    try:
+        response = requests.post(
+            config.api_endpoint,
+            json={"query": query, "variables": variables},
+            headers={"Authorization": f"Bearer {config.gh_token}"}
+        )
+        
+        data = response.json()
+        project_items = data.get('data', {}).get('node', {}).get('items', {}).get('nodes', [])
+        
+        for item in project_items:
+            if item.get('content') and item['content'].get('id') == issue_id:
+                return item['id']
+        
+        return None
+        
+    except requests.RequestException as e:
+        logging.error(f"Request error: {e}")
+        return None
+
+# Update the release field for the issue
+def update_issue_release(owner, project_title, project_id, release_field_id, item_id, release_option_id):
+    mutation = """
+    mutation UpdateIssueRelease($projectId: ID!, $itemId: ID!, $releaseFieldId: ID!, $releaseOptionId: String!) {
+        updateProjectV2ItemFieldValue(input: {
+            projectId: $projectId,
+            itemId: $itemId,
+            fieldId: $releaseFieldId,
+            value: {
+                singleSelectOptionId: $releaseOptionId  
+            }
+        }) {
+            projectV2Item {
+                id
+            }
+        }
+    }
+    """
+    
+    variables = {
+        'projectId': project_id,   
+        'itemId': item_id,         
+        'releaseFieldId': release_field_id, 
+        'releaseOptionId': release_option_id  
     }
 
     try:
@@ -323,16 +431,13 @@ def update_issue_release(issue_id, release_option_id, project_id, release_field_
             json={"query": mutation, "variables": variables},
             headers={"Authorization": f"Bearer {config.gh_token}"}
         )
-        response.raise_for_status()
+        
         data = response.json()
-
         if 'errors' in data:
-            logging.error(f"Error updating release field: {data['errors']}")
-            return False
-
-        logging.info(f"Successfully updated issue {issue_id} to the release option.")
-        return True
+            logging.error(f"GraphQL mutation errors: {data['errors']}")
+            return None
+        return data.get('data')
 
     except requests.RequestException as e:
         logging.error(f"Request error: {e}")
-        return False
+        return None
