@@ -3,6 +3,37 @@ import config
 import graphql
 from datetime import datetime
 
+    #-------------------------------------------
+    # Get the project_id, release_field_id 
+    #-------------------------------------------
+
+    project_title = 'Requests Product Backlog'
+    
+    project_id = graphql.get_project_id_by_title(
+        owner=config.repository_owner, 
+        project_title=project_title
+    )
+
+    # logger.info(f'Printing the project_id: {project_id}')
+
+    if not project_id:
+        logging.error(f"Project {project_title} not found.")
+        return None
+    
+    release_field_id = graphql.get_release_field_id(
+        project_id=project_id,
+        release_field_name=config.release_field_name
+    )
+
+    # logger.info(f"Printing the release_field_id: {release_field_id}")
+
+    if not status_field_id:
+        logging.error(f"Release field not found in project {project_title}")
+        return None
+
+    #-------------------------------------------------------------------------
+
+
 def notify_due_date_changes():
     if config.is_enterprise:
         issues = graphql.get_project_issues(
@@ -60,6 +91,9 @@ def notify_due_date_changes():
                 logger.info(f"Due date for issue {issue.get('title')} is {due_date_obj}. Changing release...")
                 
                 # Update the release field for the issue
+
+
+                
                 updated = graphql.update_issue_release(
                     issue.get('id'),
                     release_to_update['id'],
