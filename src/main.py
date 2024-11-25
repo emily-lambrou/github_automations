@@ -138,7 +138,7 @@ def main():
         logger.info('DRY RUN MODE ON!')
 
     # Notify about due date changes and release updates
-   release_based_on_duedate()
+    release_based_on_duedate()
 
 if __name__ == "__main__":
     main()
