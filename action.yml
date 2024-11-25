@@ -21,6 +21,10 @@ inputs:
     description: "The field name of the due date"
     required: true
     default: 'Due Date'
+  release_field_name:
+    description: "The field name of the release"
+    required: true
+    default: 'Release'
   enterprise_github:
     description: "Determines if the GitHub is the enterprise ot not (True,False)"
     required: false
