@@ -398,6 +398,72 @@ def get_item_id_by_issue_id(project_id, issue_id):
         logging.error(f"Request error: {e}")
         return None
 
+def get_release_option_id(project_id, release_field_name, option_name):
+    query = """
+    query($projectId: ID!) {
+      node(id: $projectId) {
+        ... on ProjectV2 {
+          fields(first: 100) {
+            nodes {
+              __typename
+              ... on ProjectV2SingleSelectField {
+                id
+                name
+                options {
+                  id
+                  name
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    """
+    variables = {
+        'projectId': project_id
+    }
+
+    try:
+        response = requests.post(
+            config.api_endpoint,
+            json={"query": query, "variables": variables},
+            headers={"Authorization": f"Bearer {config.gh_token}"}
+        )
+        
+        data = response.json()
+
+        # Check for errors in the response
+        if 'errors' in data:
+            logging.error(f"GraphQL query errors: {data['errors']}")
+            return None
+        
+        # Ensure 'data' is in the response and is valid
+        if 'data' not in data or 'node' not in data['data'] or 'fields' not in data['data']['node']:
+            logging.error(f"Unexpected response structure: {data}")
+            return None
+        
+        # Log the response for debugging
+        logging.debug(f"GraphQL response: {data}")
+
+        # Get fields from the response
+        fields = data['data']['node']['fields']['nodes']
+        for field in fields:
+            if field.get('name') == release_field_name and field['__typename'] == 'ProjectV2SingleSelectField':
+                # Look for the specific option based on the due date
+                for option in field.get('options', []):
+                    if option['name'] == option_name:
+                        option_id = option['id']
+                        # logging.info(f"Release Option ID: {option_id}")  # Log the ID for confirmation
+                        return option_id
+        
+        logging.warning(f"Release not found.")
+        return None
+
+    except requests.RequestException as e:
+        logging.error(f"Request error: {e}")
+        return None
+
 # Update the release field for the issue
 def update_issue_release(owner, project_title, project_id, release_field_id, item_id, release_option_id):
     mutation = """
