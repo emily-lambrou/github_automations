@@ -64,9 +64,13 @@ def release_based_on_duedate():
         if issue.get('state') == 'CLOSED':
             continue
             
-        issue = project_item.get('content')
-        if not issue:
-            logger.error(f"Missing 'content' in project item: {project_item}")
+      # Ensure the issue contains content
+        issue_content = issue.get('content', {})
+        if not issue_content:
+            continue
+
+        issue_id = issue_content.get('id')
+        if not issue_id:
             continue
 
         due_date = project_item.get('fieldValueByName', {}).get(config.duedate_field_name)
@@ -81,22 +85,38 @@ def release_based_on_duedate():
 
             if release_to_update:
                 logger.info(f"Due date for issue {issue.get('title')} is {due_date_obj}. Changing release...")
+
+             # Find the item id for the issue
+            item_found = False
+            for item in items:
+                if item.get('content') and item['content'].get('id') == issue_id:
+                    item_id = item['id']
+                    
+                    item_found = True
+                    
+                    logger.info(f"Proceeding to update the release")
+
+                    # Update the release field for the issue
+                    updated = graphql.update_issue_release(
+                        owner=config.repository_owner,
+                        project_title=project_title,
+                        project_id=project_id,
+                        release_field_id=release_field_id,
+                        item_id=item_id,
+                        release_option_id=release_to_update['id']
+                    )
+                    if updated:
+                        logger.info(f"Successfully updated issue {issue.get('id')} to the release option.")
+                    else:
+                        logger.error(f"Failed to update issue {issue.get('id')}.")
+                    break # Break out of the loop once updated
                 
-            # Update the release field for the issue
-            updated = graphql.update_issue_release(
-                owner=config.repository_owner,
-                project_title=project_title,
-                project_id=project_id,
-                release_field_id=release_field_id,
-                item_id=item_id,
-                release_option_id=release_option_id
-            )
-            if updated:
-                logger.info(f"Successfully updated issue {issue.get('id')} to the release option.")
-            else:
-                logger.error(f"Failed to update issue {issue.get('id')}.")
-    except (ValueError, TypeError):
-        continue
+                if not item_found:
+                    logger.warning(f'No matching item found for issue ID: {issue_id}.')
+                    continue #  Skip the issue as it cannot be updated
+                    
+            except (ValueError, TypeError):
+                continue
 
 # Find the correct release based on the due date
 def find_matching_release(release_options, due_date):
