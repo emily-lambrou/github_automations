@@ -2,7 +2,30 @@ from logger import logger
 import config
 import graphql
 from datetime import datetime
+import re
 
+# Patterns or criteria to exclude certain releases
+EXCLUDED_PATTERNS = [
+    "Unicaf Release",  # Example: exclude releases with "Unicaf Release" in the name
+]
+
+# Regex pattern for validating release name format (e.g., includes date range)
+RELEASE_DATE_PATTERN = r"\b\d{4}-\d{2}-\d{2} to \d{4}-\d{2}-\d{2}\b"
+
+def should_exclude_release(release_name):
+    """
+    Determines if a release should be excluded based on patterns or criteria.
+    """
+    for pattern in EXCLUDED_PATTERNS:
+        if pattern in release_name:
+            return True
+    return False
+
+def is_valid_release_format(release_name):
+    """
+    Validates the format of a release name to check for expected date ranges.
+    """
+    return re.search(RELEASE_DATE_PATTERN, release_name) is not None
 
 def find_matching_release(release_options, due_date):
     """
@@ -12,6 +35,14 @@ def find_matching_release(release_options, due_date):
     :return: Matching release option or None
     """
     for release_name, release_data in release_options.items():
+        # Skip excluded or invalid releases
+        if should_exclude_release(release_name):
+            logger.info(f"Excluding release: {release_name}")
+            continue
+        if not is_valid_release_format(release_name):
+            logger.warning(f"Skipping release due to invalid format: {release_name}")
+            continue
+
         if release_data['start_date'] <= due_date <= release_data['end_date']:
             return release_data
     return None
@@ -47,10 +78,8 @@ def release_based_on_duedate():
         project_title=project_title
     )
 
-    # logger.info(f'Printing the project_id: {project_id}')
-
     if not project_id:
-        logging.error(f"Project {project_title} not found.")
+        logger.error(f"Project {project_title} not found.")
         return None
     
     release_field_id = graphql.get_release_field_id(
@@ -58,10 +87,8 @@ def release_based_on_duedate():
         release_field_name=config.release_field_name
     )
 
-    # logger.info(f"Printing the release_field_id: {release_field_id}")
-
     if not release_field_id:
-        logging.error(f"Release field not found in project {project_title}")
+        logger.error(f"Release field not found in project {project_title}")
         return None
 
     #-------------------------------------------------------------------------
@@ -74,11 +101,11 @@ def release_based_on_duedate():
     for project_item in issues:
 
         # Skip the closed issues
-        if issue.get('state') == 'CLOSED':
+        if project_item.get('state') == 'CLOSED':
             continue
             
         # Ensure the issue contains content
-        issue_content = issue.get('content', {})
+        issue_content = project_item.get('content', {})
         if not issue_content:
             continue
 
@@ -88,7 +115,7 @@ def release_based_on_duedate():
 
         due_date = project_item.get('fieldValueByName', {}).get(config.duedate_field_name)
         if not due_date:
-            logger.info(f"No due date for issue {issue.get('title')}. Skipping.")
+            logger.info(f"No due date for issue {project_item.get('title')}. Skipping.")
             continue
 
         # Parse and compare the due date
@@ -97,11 +124,11 @@ def release_based_on_duedate():
             release_to_update = find_matching_release(release_options, due_date_obj)
 
             if release_to_update:
-                logger.info(f"Due date for issue {issue.get('title')} is {due_date_obj}. Changing release...")
+                logger.info(f"Due date for issue {project_item.get('title')} is {due_date_obj}. Changing release...")
 
                 # Find the item id for the issue
                 item_found = False
-                for item in items:
+                for item in graphql.get_project_items(project_id):  # Assume this function fetches project items
                     if item.get('content') and item['content'].get('id') == issue_id:
                         item_id = item['id']
                         
@@ -119,16 +146,17 @@ def release_based_on_duedate():
                             release_option_id=release_to_update['id']
                         )
                         if updated:
-                            logger.info(f"Successfully updated issue {issue.get('id')} to the release option.")
+                            logger.info(f"Successfully updated issue {issue_id} to the release option.")
                         else:
-                            logger.error(f"Failed to update issue {issue.get('id')}.")
+                            logger.error(f"Failed to update issue {issue_id}.")
                         break  # Break out of the loop once updated
                     
                 if not item_found:
                     logger.warning(f'No matching item found for issue ID: {issue_id}.')
                     continue  # Skip the issue as it cannot be updated
                     
-        except (ValueError, TypeError):
+        except (ValueError, TypeError) as e:
+            logger.error(f"Failed to parse due date for issue {project_item.get('title')}. Error: {e}")
             continue
 
 
