@@ -278,6 +278,8 @@ def get_release_field_options(project_id):
         logging.error(f"Request error: {e}")
         return None
 
+import re
+
 def extract_date_range_from_release_name(release_name):
     # Regex to match date ranges like "Nov 13 - Dec 06" or "Nov 13 - Dec 06, 2024"
     date_range_pattern = r"([a-zA-Z]+ \d{1,2}) - ([a-zA-Z]+ \d{1,2})(, (\d{4}))?"
@@ -294,7 +296,11 @@ def extract_date_range_from_release_name(release_name):
             end_date_str += " " + year    # e.g., "Dec 06 2024"
         
         return start_date_str, end_date_str
+
+    # Handle case where no date range is found
+    logging.warning(f"No date range found in release name: {release_name}")
     return None
+
 
 def get_release_field_id(project_id, release_field_name):
     query = """
