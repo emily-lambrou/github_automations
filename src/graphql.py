@@ -5,6 +5,28 @@ import config
 
 logging.basicConfig(level=logging.DEBUG)  # Ensure logging is set up
 
+
+# Define the query to fetch release field options
+QUERY = """
+query {
+  node(id: "YOUR_PROJECT_ID") {
+    ... on ProjectV2 {
+      fields(first: 50) {
+        nodes {
+          ... on ProjectV2SingleSelectField {
+            name
+            options {
+              id
+              name
+            }
+          }
+        }
+      }
+    }
+  }
+}
+"""
+
 # Fetch field options
 def get_release_field_options():
     response = requests.post(API_URL, json={"query": query}, headers=headers)
