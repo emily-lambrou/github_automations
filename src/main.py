@@ -27,7 +27,7 @@ def release_based_on_duedate():
     # Get the project_id, release_field_id 
     #-------------------------------------------
 
-    project_title = 'Requests Product Backlog'
+    project_title = 'Test'
     
     project_id = graphql.get_project_id_by_title(
         owner=config.repository_owner, 
