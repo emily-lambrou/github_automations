@@ -7,29 +7,12 @@ import graphql
 
 
 def get_release_fields():
-    # Fetch issues based on whether it's an enterprise or not
-    if config.is_enterprise:
-        issues = graphql.get_project_issues(
-            owner=config.repository_owner,
-            owner_type=config.repository_owner_type,
-            project_number=config.project_number,
-            status_field_name=config.status_field_name,
-            filters={'open_only': True}
-        )
-    else:
-        issues = graphql.get_repo_issues(
-            owner=config.repository_owner,
-            repository=config.repository_name,
-            status_field_name=config.status_field_name
-        )
-
-    if not issues:
-        logger.info('No issues have been found')
-        return
-
-    
     project_title = 'Test'
-    
+
+    release_options = graphql.get_release_field_options()
+    if release_options:
+    print("Release Options (Name -> ID):", release_options)
+
 
 def main():
     logger.info('Process started...')
