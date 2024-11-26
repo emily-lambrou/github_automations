@@ -38,7 +38,7 @@ def release_based_on_duedate():
         return None
     
     release_field_name = config.release_field_name
-    release_options = graphql.get_release_field_options(project_id)
+    release_options = graphql.get_all_release_options(project_id, release_field_name)
     
     if not release_options:
         logging.error("Failed to fetch release options.")
