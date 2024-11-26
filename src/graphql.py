@@ -92,7 +92,7 @@ def get_project_issues(owner, owner_type, project_number, duedate_field_name, fi
               items(first: 100,after: $after) {{
                 nodes {{
                   id
-                  fieldValueByName(name: $status) {{
+                  fieldValueByName(name: $duedate) {{
                     ... on ProjectV2ItemFieldDateValue {{
                       id
                       date
