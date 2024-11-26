@@ -47,7 +47,7 @@ def release_based_on_duedate():
     # Define the mapping of date ranges to release names
     date_to_release = {
         ("2024-11-13", "2024-12-06"): "Nov 13 - Dec 06, 2024 (v0.8.9)",
-        ("2024-12-09", "2025-01-06"): "Dec 09 - Jan 06, 2025 (v0.9.0)",
+        ("2024-12-09", "2025-01-06"): "Dec 09, 2024 - Jan 06, 2025 (v0.9.0)",
         # Add more ranges and releases as needed
     }
         
