@@ -326,7 +326,7 @@ def get_project_id_by_title(owner, project_title):
         logging.error(f"Request error: {e}")
         return None
 
-def get_release_field_id(project_id, release_field_name):
+def get_all_release_options(project_id, release_field_name):
     query = """
     query($projectId: ID!) {
       node(id: $projectId) {
@@ -348,9 +348,7 @@ def get_release_field_id(project_id, release_field_name):
       }
     }
     """
-    variables = {
-        'projectId': project_id
-    }
+    variables = {'projectId': project_id}
 
     try:
         response = requests.post(
@@ -374,13 +372,18 @@ def get_release_field_id(project_id, release_field_name):
         # Log the response for debugging
         logging.debug(f"GraphQL response: {data}")
 
-        # Get fields from the response
+        # Find the field with the matching name
         fields = data['data']['node']['fields']['nodes']
         for field in fields:
             if field.get('name') == release_field_name and field['__typename'] == 'ProjectV2SingleSelectField':
-                return field['id']
-        
-        logging.warning(f"Release field '{release_field_name}' not found.")
+                # Create a dictionary mapping release names to their IDs
+                release_options = {
+                    option['name']: option['id']
+                    for option in field.get('options', [])
+                }
+                return release_options
+
+        logging.warning(f"Field {release_field_name} not found in project.")
         return None
 
     except requests.RequestException as e:
