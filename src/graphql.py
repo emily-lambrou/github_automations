@@ -2,16 +2,12 @@ from pprint import pprint
 import logging
 import requests
 import config
-import json
-import re
-import logger
-from datetime import datetime
 
 logging.basicConfig(level=logging.DEBUG)  # Ensure logging is set up
 
-def get_repo_issues(owner, repository, duedate_field_name, after=None, issues=None):
+def get_repo_issues(owner, repository, after=None, issues=None):
     query = """
-    query GetRepoIssues($owner: String!, $repo: String!, $duedate: String!, $after: String) {
+    query GetRepoClosedIssues($owner: String!, $repo: String!, $after: String) {
           repository(owner: $owner, name: $repo) {
             issues(first: 100, after: $after, states: [OPEN]) {
               nodes {
@@ -32,12 +28,6 @@ def get_repo_issues(owner, repository, duedate_field_name, after=None, issues=No
                       number
                       title
                     }
-                    fieldValueByName(name: $duedate) {
-                      ... on ProjectV2ItemFieldDateValue {
-                        id
-                        date
-                      }
-                    }
                   }
                 }
               }
@@ -55,7 +45,6 @@ def get_repo_issues(owner, repository, duedate_field_name, after=None, issues=No
     variables = {
         'owner': owner,
         'repo': repository,
-        'duedate': duedate_field_name,
         'after': after
     }
 
@@ -65,13 +54,22 @@ def get_repo_issues(owner, repository, duedate_field_name, after=None, issues=No
         headers={"Authorization": f"Bearer {config.gh_token}"}
     )
 
-    if response.json().get('errors'):
-        print(response.json().get('errors'))
+    data = response.json()
 
-    pageinfo = response.json().get('data').get('repository').get('issues').get('pageInfo')
+    if data.get('errors'):
+        print(data.get('errors'))
+   
+    # Add debug print statement
+    pprint(data)
+
+    repository_data = data.get('data', {}).get('repository', {})
+    issues_data = repository_data.get('issues', {})
+    pageinfo = issues_data.get('pageInfo', {})
+    nodes = issues_data.get('nodes', [])
+
     if issues is None:
         issues = []
-    issues = issues + response.json().get('data').get('repository').get('issues').get('nodes')
+    issues = issues + nodes
     if pageinfo.get('hasNextPage'):
         return get_repo_issues(
             owner=owner,
@@ -83,7 +81,6 @@ def get_repo_issues(owner, repository, duedate_field_name, after=None, issues=No
 
     return issues
 
-
 def get_project_issues(owner, owner_type, project_number, duedate_field_name, filters=None, after=None, issues=None):
     query = f"""
     query GetProjectIssues($owner: String!, $projectNumber: Int!, $duedate: String!, $after: String)  {{
@@ -92,10 +89,10 @@ def get_project_issues(owner, owner_type, project_number, duedate_field_name, fi
               id
               title
               number
-              items(first: 100, after: $after) {{
+              items(first: 100,after: $after) {{
                 nodes {{
                   id
-                  fieldValueByName(name: $duedate) {{
+                  fieldValueByName(name: $status) {{
                     ... on ProjectV2ItemFieldDateValue {{
                       id
                       date
@@ -108,7 +105,7 @@ def get_project_issues(owner, owner_type, project_number, duedate_field_name, fi
                       number
                       state
                       url
-                      assignees(first: 20) {{
+                      assignees(first:20) {{
                         nodes {{
                           name
                           email
@@ -119,11 +116,11 @@ def get_project_issues(owner, owner_type, project_number, duedate_field_name, fi
                   }}
                 }}
                 pageInfo {{
-                  endCursor
-                  hasNextPage
-                  hasPreviousPage
-                }}
-                totalCount
+                endCursor
+                hasNextPage
+                hasPreviousPage
+              }}
+              totalCount
               }}
             }}
           }}
@@ -137,44 +134,156 @@ def get_project_issues(owner, owner_type, project_number, duedate_field_name, fi
         'after': after
     }
 
-    response = requests.post(
-        config.api_endpoint,
-        json={"query": query, "variables": variables},
-        headers={"Authorization": f"Bearer {config.gh_token}"}
-    )
+    try:
+        response = requests.post(
+            config.api_endpoint,
+            json={"query": query, "variables": variables},
+            headers={"Authorization": f"Bearer {config.gh_token}"}
+        )
+    
+        data = response.json()
+    
+        if 'errors' in data:
+            logging.error(f"GraphQL query errors: {data['errors']}")
+            return []
+          
+        owner_data = data.get('data', {}).get(owner_type, {})
+        project_data = owner_data.get('projectV2', {})
+        items_data = project_data.get('items', {})
+        pageinfo = items_data.get('pageInfo', {})
+        nodes = items_data.get('nodes', [])
+    
+        if issues is None:
+            issues = []
 
-    if response.json().get('errors'):
-        logging.error(response.json().get('errors'))
+        if filters:
+            filtered_issues = []
+            for node in nodes:
+                issue_content = node.get('content', {})
+                if not issue_content:
+                    continue
+    
+                issue_id = issue_content.get('id')
+                if not issue_id:
+                    continue
+                
+                if filters.get('open_only') and node['content'].get('state') != 'OPEN':
+                    logging.debug(f"Filtering out issue ID {issue_id} with state {issue_content.get('state')}")
+                    continue
+                
+                filtered_issues.append(node)
+    
+            nodes = filtered_issues
+    
+        issues = issues + nodes
+    
+        if pageinfo.get('hasNextPage'):
+            return get_project_issues(
+                owner=owner,
+                owner_type=owner_type,
+                project_number=project_number,
+                after=pageinfo.get('endCursor'),
+                filters=filters,
+                issues=issues,
+                duedate_field_name=duedate_field_name
+            )
+    
+        return issues
+    except requests.RequestException as e:
+        logging.error(f"Request error: {e}")
         return []
 
-    page_info = response.json().get('data').get(owner_type).get('projectV2').get('items').get('pageInfo')
-    nodes = response.json().get('data').get(owner_type).get('projectV2').get('items').get('nodes')
+def get_project_items(owner, owner_type, project_number, release_field_name, filters=None, after=None, items=None):
+    query = f"""
+    query GetProjectItems($owner: String!, $projectNumber: Int!, $release: String!, $after: String) {{
+      {owner_type}(login: $owner) {{
+        projectV2(number: $projectNumber) {{
+          id
+          title
+          items(first: 100, after: $after) {{
+            nodes {{
+              id
+              fieldValueByName(name: $status) {{
+                ... on ProjectV2ItemFieldSingleSelectValue {{
+                  id
+                  name
+                }}
+              }}
+              content {{
+                ... on Issue {{
+                  id
+                  title
+                  state
+                  url
+                  assignees(first: 10) {{
+                    nodes {{
+                      name
+                      email
+                      login
+                    }}
+                  }}
+                }}
+              }}
+            }}
+            pageInfo {{
+              endCursor
+              hasNextPage
+            }}
+          }}
+        }}
+      }}
+    }}
+    """
 
-    if filters:
-        filtered_issues = []
-        for node in nodes:
-            if filters.get('open_only') and node['content'].get('state') != 'OPEN':
-                continue
-            filtered_issues.append(node)
-        nodes = filtered_issues
+    
+    variables = {
+        'owner': owner,
+        'projectNumber': project_number,
+        'release': release_field_name,
+        'after': after
+    }
 
-    issues = issues or []
-    issues += nodes
-
-    if page_info.get('hasNextPage'):
-        return get_project_issues(
-            owner=owner,
-            owner_type=owner_type,
-            project_number=project_number,
-            after=page_info.get('endCursor'),
-            filters=filters,
-            issues=issues,
-            duedate_field_name=duedate_field_name
+    try:
+        response = requests.post(
+            config.api_endpoint,
+            json={"query": query, "variables": variables},
+            headers={"Authorization": f"Bearer {config.gh_token}"}
         )
 
-    return issues
+        data = response.json()
 
-# Fetch Project ID by Title
+        if 'errors' in data:
+            logging.error(f"GraphQL query errors: {data['errors']}")
+            return []
+
+        owner_data = data.get('data', {}).get(owner_type, {})
+        project_data = owner_data.get('projectV2', {})
+        items_data = project_data.get('items', {})
+        pageinfo = items_data.get('pageInfo', {})
+        nodes = items_data.get('nodes', [])
+
+        if items is None:
+            items = []
+
+        items += nodes
+
+        if pageinfo.get('hasNextPage'):
+            return get_project_items(
+                owner=owner,
+                owner_type=owner_type,
+                project_number=project_number,
+                status_field_name=status_field_name,
+                after=pageinfo.get('endCursor'),
+                items=items
+            )
+
+        return items
+
+    except requests.RequestException as e:
+        logging.error(f"Request error: {e}")
+        return []
+
+
 def get_project_id_by_title(owner, project_title):
     query = """
     query($owner: String!, $projectTitle: String!) {
@@ -189,7 +298,10 @@ def get_project_id_by_title(owner, project_title):
     }
     """
     
-    variables = {'owner': owner, 'projectTitle': project_title}
+    variables = {
+        'owner': owner, 
+        'projectTitle': project_title
+    }
 
     try:
         response = requests.post(
@@ -197,6 +309,7 @@ def get_project_id_by_title(owner, project_title):
             json={"query": query, "variables": variables},
             headers={"Authorization": f"Bearer {config.gh_token}"}
         )
+    
         data = response.json()
 
         if 'errors' in data:
@@ -206,103 +319,12 @@ def get_project_id_by_title(owner, project_title):
         projects = data['data']['organization']['projectsV2']['nodes']
         for project in projects:
             if project['title'] == project_title:
-                logging.info(f"Found project '{project_title}' with ID: {project['id']}")
                 return project['id']
-        logging.warning(f"Project '{project_title}' not found.")
         return None
 
     except requests.RequestException as e:
         logging.error(f"Request error: {e}")
         return None
-
-# Fetch and map release options by date range
-def get_release_field_options(project_id):
-    query = """
-    query($projectId: ID!) {
-      node(id: $projectId) {
-        ... on ProjectV2 {
-          fields(first: 50) {
-            nodes {
-              __typename
-              ... on ProjectV2SingleSelectField {
-                name
-                options {
-                  id
-                  name
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-    """
-    variables = {'projectId': project_id}
-
-    try:
-        response = requests.post(
-            config.api_endpoint,
-            json={"query": query, "variables": variables},
-            headers={"Authorization": f"Bearer {config.gh_token}"}
-        )
-        response.raise_for_status()
-        data = response.json()
-
-        if 'errors' in data:
-            logging.error(f"GraphQL query errors: {data['errors']}")
-            return None
-
-        fields = data['data']['node']['fields']['nodes']
-        release_options = {}
-
-        # Iterate through the fields to find the Releases field
-        for field in fields:
-            field_name = field.get('name')
-            if field_name == "Release":
-                for option in field.get('options', []):
-                    release_name = option['name']
-                    release_id = option['id']
-                    
-                    # Try to parse the date range from the release name, e.g., "Nov 13 - Dec 06, 2024"
-                    date_range = extract_date_range_from_release_name(release_name)
-                    if date_range:
-                        release_options[release_name] = {
-                            'id': release_id,
-                            'start_date': date_range[0],
-                            'end_date': date_range[1]
-                        }
-
-        if not release_options:
-            logging.warning("No release options found in the project.")
-        return release_options
-
-    except requests.RequestException as e:
-        logging.error(f"Request error: {e}")
-        return None
-
-
-def extract_date_range_from_release_name(release_name):
-    # Updated regex to capture date ranges like "Dec 09, 2024 - Jan 06, 2025" and ignore trailing version numbers
-    date_range_pattern = r"([a-zA-Z]+ \d{1,2}),? (\d{4})? - ([a-zA-Z]+ \d{1,2}),? (\d{4})?(\s?\(v[^\)]+\))?"
-    
-    match = re.search(date_range_pattern, release_name)
-    
-    if match:
-        start_month_day = match.group(1) + " " + match.group(2) if match.group(2) else match.group(1)
-        end_month_day = match.group(3) + " " + match.group(4) if match.group(4) else match.group(3)
-        
-        return start_month_day, end_month_day
-
-    # Case when no date range is found
-    logging.warning(f"No date range found in release name: {release_name}")
-    
-    # Check if there was no date at all
-    if re.search(r"\d{1,2}", release_name):  # If there are numbers, but no date range
-        logging.warning(f"Partial date found but not in expected range format: {release_name}")
-    else:
-        logging.warning(f"No date or recognizable format found in release name: {release_name}")
-    
-    return None
 
 def get_release_field_id(project_id, release_field_name):
     query = """
@@ -408,7 +430,7 @@ def get_item_id_by_issue_id(project_id, issue_id):
         logging.error(f"Request error: {e}")
         return None
 
-def get_release_option_id(project_id, release_field_name, option_name):
+def get_release_option_id(project_id, release_field_name):
     query = """
     query($projectId: ID!) {
       node(id: $projectId) {
@@ -460,22 +482,23 @@ def get_release_option_id(project_id, release_field_name, option_name):
         fields = data['data']['node']['fields']['nodes']
         for field in fields:
             if field.get('name') == release_field_name and field['__typename'] == 'ProjectV2SingleSelectField':
-                # Look for the specific option based on the due date
+                # Look for the specific options
                 for option in field.get('options', []):
-                    if option['name'] == option_name:
+                    if option['name'] == "May 07 - Jun 09, 2025 (v0.9.5)":
                         option_id = option['id']
-                        # logging.info(f"Release Option ID: {option_id}")  # Log the ID for confirmation
+                        # logging.info(f"QA Testing Status Option ID: {option_id}")  # Log the ID for confirmation
                         return option_id
         
-        logging.warning(f"Release not found.")
+        logging.warning(f"Release May 07 - Jun 09, 2025 (v0.9.5) not found.")
         return None
 
     except requests.RequestException as e:
         logging.error(f"Request error: {e}")
         return None
 
-# Update the release field for the issue
-def update_issue_release(owner, project_title, project_id, release_field_id, item_id, release_option_id):
+
+
+def update_release(owner, project_title, project_id, release_field_id, item_id, release_option_id):
     mutation = """
     mutation UpdateIssueRelease($projectId: ID!, $itemId: ID!, $releaseFieldId: ID!, $releaseOptionId: String!) {
         updateProjectV2ItemFieldValue(input: {
@@ -516,3 +539,6 @@ def update_issue_release(owner, project_title, project_id, release_field_id, ite
     except requests.RequestException as e:
         logging.error(f"Request error: {e}")
         return None
+
+
+
