@@ -94,28 +94,21 @@ def release_based_on_duedate():
                     if item.get('content') and item['content'].get('id') == issue_id:
                         item_id = item['id']
                         item_found = True
-                        
-                        logging.info(f"Proceeding to update the release")
-
-                        for item in graphql.get_project_items(project_id):
-                if item.get('content') and item['content'].get('id') == issue_id:
-                    item_id = item['id']
-                    item_found = True
-
-                    # Update the issue with the corresponding release option ID
-                    updated = graphql.update_issue_release(
-                        owner=config.repository_owner,
-                        project_title=project_title,
-                        project_id=project_id,
-                        release_field_id=release_field_name,
-                        item_id=item_id,
-                        release_option_id=release_option_id
-                    )
-                    if updated:
-                        logging.info(f"Successfully updated issue {issue_id} to release {matching_release_name}.")
-                    else:
-                        logging.error(f"Failed to update issue {issue_id}.")
-                    break  # Exit the loop once the issue is updated
+    
+                        # Update the issue with the corresponding release option ID
+                        updated = graphql.update_issue_release(
+                            owner=config.repository_owner,
+                            project_title=project_title,
+                            project_id=project_id,
+                            release_field_id=release_field_name,
+                            item_id=item_id,
+                            release_option_id=release_option_id
+                        )
+                        if updated:
+                            logging.info(f"Successfully updated issue {issue_id} to release {matching_release_name}.")
+                        else:
+                            logging.error(f"Failed to update issue {issue_id}.")
+                        break  # Exit the loop once the issue is updated
 
         except ValueError as e:
             logging.error(f"Error parsing due date for issue {project_item.get('title')}: {e}")
