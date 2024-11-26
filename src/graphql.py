@@ -7,7 +7,7 @@ logging.basicConfig(level=logging.DEBUG)  # Ensure logging is set up
 
 def get_repo_issues(owner, repository, after=None, issues=None):
     query = """
-    query GetRepoClosedIssues($owner: String!, $repo: String!, $after: String) {
+    query GetRepoOpenIssues($owner: String!, $repo: String!, $after: String) {
           repository(owner: $owner, name: $repo) {
             issues(first: 100, after: $after, states: [OPEN]) {
               nodes {
@@ -495,7 +495,6 @@ def get_release_option_id(project_id, release_field_name):
     except requests.RequestException as e:
         logging.error(f"Request error: {e}")
         return None
-
 
 
 def update_release(owner, project_title, project_id, release_field_id, item_id, release_option_id):
