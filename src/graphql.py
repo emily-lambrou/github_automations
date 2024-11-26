@@ -168,7 +168,7 @@ def get_project_issues(owner, owner_type, project_number, duedate_field_name, fi
                     continue
                 
                 if filters.get('open_only') and node['content'].get('state') != 'OPEN':
-                    logging.debug(f"Filtering out issue ID {issue_id} with state {issue_content.get('state')}")
+                    # logging.debug(f"Filtering out issue ID {issue_id} with state {issue_content.get('state')}")
                     continue
                 
                 filtered_issues.append(node)
