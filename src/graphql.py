@@ -484,12 +484,12 @@ def get_release_option_id(project_id, release_field_name):
             if field.get('name') == release_field_name and field['__typename'] == 'ProjectV2SingleSelectField':
                 # Look for the specific options
                 for option in field.get('options', []):
-                    if option['name'] == "May 07 - Jun 09, 2025 (v0.9.5)":
+                    if option['name'] == "Nov 13 - Dec 06, 2024 (v0.8.9)":
                         option_id = option['id']
-                        # logging.info(f"QA Testing Status Option ID: {option_id}")  # Log the ID for confirmation
+                        # logging.info(f"Release Option ID: {option_id}")  # Log the ID for confirmation
                         return option_id
         
-        logging.warning(f"Release May 07 - Jun 09, 2025 (v0.9.5) not found.")
+        logging.warning(f"Release Nov 13 - Dec 06, 2024 (v0.8.9) not found.")
         return None
 
     except requests.RequestException as e:
