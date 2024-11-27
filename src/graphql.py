@@ -204,7 +204,7 @@ def get_project_items(owner, owner_type, project_number, release_field_name, fil
           items(first: 100, after: $after) {{
             nodes {{
               id
-              fieldValueByName(name: $status) {{
+              fieldValueByName(name: $release) {{
                 ... on ProjectV2ItemFieldSingleSelectValue {{
                   id
                   name
@@ -273,7 +273,7 @@ def get_project_items(owner, owner_type, project_number, release_field_name, fil
                 owner=owner,
                 owner_type=owner_type,
                 project_number=project_number,
-                status_field_name=status_field_name,
+                release_field_name=release_field_name,
                 after=pageinfo.get('endCursor'),
                 items=items
             )
@@ -283,7 +283,6 @@ def get_project_items(owner, owner_type, project_number, release_field_name, fil
     except requests.RequestException as e:
         logging.error(f"Request error: {e}")
         return []
-
 
 def get_project_id_by_title(owner, project_title):
     query = """
