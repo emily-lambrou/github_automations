@@ -36,6 +36,14 @@ def release_based_on_duedate():
     if not project_id:
         logging.error(f"Project {project_title} not found.")
         return None
+
+
+    items = graphql.get_project_items(
+        owner=config.repository_owner, 
+        owner_type=config.repository_owner_type,
+        project_number=config.project_number,
+        release_field_name=config.release_field_name
+    )
     
     for project_item in issues:
         if project_item.get('state') == 'CLOSED':
@@ -80,9 +88,10 @@ def release_based_on_duedate():
                 
                 if datetime(2024,11,13).date() <= due_date_obj <= datetime(2024,12,6).date():
                     item_found = False
-                    for item in graphql.get_project_items(project_id):
+                    for item in items: 
                         if item.get('content') and item['content'].get('id') == issue_id:
                             item_id = item['id']
+                            
                             item_found = True
     
                             # Update the issue with the corresponding release option ID
