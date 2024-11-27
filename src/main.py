@@ -86,7 +86,7 @@ def release_based_on_duedate():
                             item_found = True
     
                             # Update the issue with the corresponding release option ID
-                            updated = graphql.update_issue_release(
+                            updated = graphql.update_release(
                                 owner=config.repository_owner,
                                 project_title=project_title,
                                 project_id=project_id,
