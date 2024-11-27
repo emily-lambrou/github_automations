@@ -58,6 +58,16 @@ def release_based_on_duedate():
             logging.error(f"Release field not found in project {project_title}")
             return None
 
+        release_option_id = graphql.get_release_option_id(
+             project_id=project_id,
+             release_field_name=config.release_field_name
+        )
+
+        if not release_option_id:
+            logging.error(f"Release option if not found in project {project_title}")
+        return None
+      
+    
         # Get the due date value
         due_date = None
         due_date_obj = None
@@ -80,12 +90,12 @@ def release_based_on_duedate():
                                 owner=config.repository_owner,
                                 project_title=project_title,
                                 project_id=project_id,
-                                release_field_id=release_field_name,
+                                release_field_id=release_field_id,
                                 item_id=item_id,
                                 release_option_id=release_option_id
                             )
                             if updated:
-                                logging.info(f"Successfully updated issue {issue_id} to release {matching_release_name}.")
+                                logging.info(f"Successfully updated the issue with a release.")
                             else:
                                 logging.error(f"Failed to update issue {issue_id}.")
                             break  # Exit the loop once the issue is updated
