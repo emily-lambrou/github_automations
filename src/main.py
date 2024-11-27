@@ -37,7 +37,6 @@ def release_based_on_duedate():
         logging.error(f"Project {project_title} not found.")
         return None
     
-
     for project_item in issues:
         if project_item.get('state') == 'CLOSED':
             continue
@@ -50,7 +49,14 @@ def release_based_on_duedate():
         if not issue_id:
             continue
 
-        release_option_id = 
+        release_field_id = graphql.get_release_field_id(
+            project_id=project_id,
+            release_field_name=config.release_field_name
+        )
+      
+        if not release_field_id:
+            logging.error(f"Release field not found in project {project_title}")
+            return None
 
         # Get the due date value
         due_date = None
