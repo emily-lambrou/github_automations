@@ -78,7 +78,7 @@ def release_based_on_duedate():
                 due_date_obj = datetime.strptime(due_date, "%Y-%m-%d").date()
                 logging.info(f"Due date is: {due_date_obj}.")
                 
-                if 2024-11-13 <= due_date_obj <= 2024-12-06:
+                if datetime(2024,11,13).date() <= due_date_obj <= datetime(2024,12,06).date():
                     item_found = False
                     for item in graphql.get_project_items(project_id):
                         if item.get('content') and item['content'].get('id') == issue_id:
