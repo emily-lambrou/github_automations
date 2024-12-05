@@ -2,7 +2,6 @@ import requests
 import config
 from logger import logger
 
-
 def get_project(organization_name, project_number):
     # GraphQL query
     query = """
