@@ -1,39 +1,61 @@
-name: "Release Options"
-description: "Print the release options for the project"
-author: "Emily Lambrou"
+name: "Custom Project Automations"
+description: "Project Automations"
+author: "Petros Andreou"
 branding:
-  icon: 'notification'
+  icon: 'clock'
   color: 'green'
 runs:
   using: "docker"
   image: "Dockerfile"
 inputs:
   gh_token:
-    description: "GitHub Personal Access Token"
+    description: "The Personal Token"
     required: true
   project_number:
     description: "The Project Number"
-    required: true 
-  project_title:
-    description: "The Project Title"
     required: true
-  duedate_field_name:
-    description: "The field name of the due date"
+  repository_owner_type:
+    description: "The type of the repository owner (organization,user)"
     required: true
-    default: 'Due Date'
-  release_field_name:
-    description: "The field name of the release"
-    required: true
-    default: 'Release'
+    default: 'user'
   enterprise_github:
     description: "Determines if the GitHub is the enterprise ot not (True,False)"
     required: false
     default: 'False'
-  repository_owner_type:
-    description: "The type of the repository owner (organization, user)"
-    required: true
-    default: 'user'
   dry_run:
-    description: "DryRun Mode (True, False)"
+    description: "DryRun Mode (True,False)"
     required: false
     default: 'False'
+  status_field_name:
+    description: "The field name for the status"
+    required: true
+    default: 'Status'
+  duedate_field_name:
+    description: "The field name for the due date"
+    required: true
+    default: 'Due Date'
+  timespent_field_name:
+    description: "The field name for the time spent"
+    required: true
+    default: 'Time Spent'
+  release_field_name:
+    description: "The field name for the release"
+    required: true
+    default: 'Release'
+  estimate_field_name:
+    description: "The field name for the estimate"
+    required: true
+    default: 'Estimate'
+  priority_field_name:
+    description: "The field name for the priority"
+    required: true
+    default: 'Priority'
+  size_field_name:
+    description: "The field name for the size"
+    required: true
+    default: 'Size'
+  week_field_name:
+    description: "The field name for the week"
+    required: true
+    default: 'Week'
+    
