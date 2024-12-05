@@ -1,124 +1,154 @@
-import re
-import graphql
-import logger
-import test
-from datetime import datetime
-import logging
+from logger import logger
 import config
+import utils
+import graphql
 
-def release_based_on_duedate():
-    if config.is_enterprise:
-        issues = graphql.get_project_issues(
-            owner=config.repository_owner,
-            owner_type=config.repository_owner_type,
-            project_number=config.project_number,
-            duedate_field_name=config.duedate_field_name,
-            filters={'open_only': True}
-        )
-    else:
-        issues = graphql.get_repo_issues(
-            owner=config.repository_owner,
-            repository=config.repository_name,
-            duedate_field_name=config.duedate_field_name
-        )
 
-    if not issues:
-        logging.info('No issues have been found')
-        return
+def fields_based_on_due_date(project, issue, updates):
+    # Extract all field nodes from the project
+    field_nodes = project["fields"]["nodes"]
 
-    # Get the project_id, release_field_id 
-    project_title = 'Test'
-    project_id = graphql.get_project_id_by_title(
-        owner=config.repository_owner, 
-        project_title=project_title
+    # Identify the 'Release' and 'Week' fields by name
+    release_field = next((field for field in field_nodes if field and field["name"] == "Release"), None)
+    week_field = next((field for field in field_nodes if field and field["name"] == "Week"), None)
+
+    # Get the options for 'Release' and 'Week' fields
+    release_options = release_field['options']
+    week_options = week_field['configuration']['iterations'] + week_field['configuration']['completedIterations']
+
+    comment_fields = []
+
+    # Skip processing if the issue does not have a due date
+    if not issue.get('dueDate'):
+        return comment_fields
+
+    # Retrieve the due date from the issue
+    due_date = issue.get('dueDate').get('date')
+    output = due_date
+
+    # Handle missing 'week' field by finding the appropriate week based on the due date
+    week = utils.find_week(weeks=week_options, date_str=due_date)
+    if week and week != issue.get('week'):
+        # Add the 'week' field update to the updates list
+        updates.append({
+            "field_id": week_field['id'],
+            "type": "iteration",
+            "value": week['id']
+        })
+        output += f' -> Week {week}'
+        comment_fields.append({'field': 'Week', 'value': week['title']})
+
+    # Handle missing 'release' field by finding the appropriate release based on the due date
+    release = utils.find_release(releases=release_options, date_str=due_date)
+    if release and release != issue.get('release'):
+        # Add the 'release' field update to the updates list
+        updates.append({
+            "field_id": release_field['id'],
+            "type": "single_select",
+            "value": release['id']
+        })
+        output += f' -> Release {release}'
+        comment_fields.append({'field': 'Release', 'value': release['name']})
+
+    # Log the updates for debugging or tracking purposes
+    logger.debug(output)
+
+    return comment_fields
+
+
+def fields_based_on_estimation(project, issue, updates):
+    # Extract all field nodes from the project
+    field_nodes = project["fields"]["nodes"]
+
+    # Identify the 'Size' field by name
+    size_field = next((field for field in field_nodes if field and field["name"] == "Size"), None)
+    size_options = size_field['options']
+
+    comment_fields = []
+
+    # Skip processing if the issue does not have an estimate
+    if not issue.get('estimate'):
+        return comment_fields
+
+    # Retrieve the estimate value from the issue
+    estimate = issue.get('estimate').get('name')
+    output = estimate
+
+    # Find the size corresponding to the estimate and update if found
+    size = utils.find_size(sizes=size_options, estimate_name=estimate)
+    if size and size != issue.get('size'):
+        # Add the 'size' field update to the updates list
+        updates.append({
+            "field_id": size_field['id'],
+            "type": "single_select",
+            "value": size['id']
+        })
+        # Log the update for debugging or tracking purposes
+        logger.debug(f'{output} -> Size {size}')
+        comment_fields.append({'field': 'Size', 'value': size['name']})
+
+    return comment_fields
+
+
+def update_fields(issues):
+    # Fetch the project details from GraphQL
+    project = graphql.get_project(
+        organization_name=config.repository_owner,
+        project_number=config.project_number
     )
 
-    if not project_id:
-        logging.error(f"Project {project_title} not found.")
-        return None
+    # Iterate over all issues to check and set missing fields
+    for issue in issues:
+        updates = []
+        # Determine missing fields based on estimation and due date
+        comment_fields = fields_based_on_estimation(project, issue, updates)
+        comment_fields += fields_based_on_due_date(project, issue, updates)
 
+        # Apply updates if not in dry run mode
+        if updates:
+            # Constructing the comment
+            comment = "The following fields have been updated:\n" + "\n".join(
+                [f"- {item['field']}: **{item['value']}**" for item in comment_fields]
+            )
 
-    items = graphql.get_project_items(
-        owner=config.repository_owner, 
-        owner_type=config.repository_owner_type,
-        project_number=config.project_number,
-        release_field_name=config.release_field_name
-    )
-    
-    for project_item in issues:
-        if project_item.get('state') == 'CLOSED':
-            continue
+            if not config.dry_run:
+                graphql.update_project_item_fields(
+                    project_id=project['id'],
+                    item_id=issue['id'],
+                    updates=updates
+                )
 
-        issue_content = project_item.get('content', {})
-        if not issue_content:
-            continue
+                # Add a comment summarizing the updated fields
+                graphql.add_issue_comment(issue['content']['id'], comment)
 
-        issue_id = issue_content.get('id')
-        if not issue_id:
-            continue
+            # Log the output
+            logger.info(f"Comment has been added to: {issue['content']['url']} with comment {comment}")
 
-        release_field_id = graphql.get_release_field_id(
-            project_id=project_id,
-            release_field_name=config.release_field_name
-        )
-      
-        if not release_field_id:
-            logging.error(f"Release field not found in project {project_title}")
-            return None
-
-        release_option_id = graphql.get_release_option_id(
-             project_id=project_id,
-             release_field_name=config.release_field_name
-        )
-
-        if not release_option_id:
-            logging.error(f"Release option if not found in project {project_title}")
-        return None
-      
-    
-        # Get the due date value
-        due_date = None
-        due_date_obj = None
-        
-        try:
-            due_date = project_item.get('fieldValueByName', {}).get('date')
-            if due_date:
-                due_date_obj = datetime.strptime(due_date, "%Y-%m-%d").date()
-                logging.info(f"Due date is: {due_date_obj}.")
-                
-                if datetime(2024,11,13).date() <= due_date_obj <= datetime(2024,12,6).date():
-                    item_found = False
-                    for item in items: 
-                        if item.get('content') and item['content'].get('id') == issue_id:
-                            item_id = item['id']
-                            
-                            item_found = True
-    
-                            # Update the issue with the corresponding release option ID
-                            updated = graphql.update_release(
-                                owner=config.repository_owner,
-                                project_title=project_title,
-                                project_id=project_id,
-                                release_field_id=release_field_id,
-                                item_id=item_id,
-                                release_option_id=release_option_id
-                            )
-                            if updated:
-                                logging.info(f"Successfully updated the issue with a release.")
-                            else:
-                                logging.error(f"Failed to update issue {issue_id}.")
-                            break  # Exit the loop once the issue is updated
-
-        except ValueError as e:
-            logging.error(f"Error parsing due date for issue {project_item.get('title')}: {e}")
-            continue
 
 def main():
-    logging.info('Process started...')
+    # Log the start of the process
+    logger.info('Process started...')
     if config.dry_run:
-        logging.info('DRY RUN MODE ON!')
+        logger.info('DRY RUN MODE ON!')
 
-    release_based_on_duedate()
+    # Fetch all open issues from the project
+    issues = graphql.get_project_issues(
+        owner=config.repository_owner,
+        owner_type=config.repository_owner_type,
+        project_number=config.project_number,
+        filters={'open_only': True}
+    )
+
+    # Exit if no issues are found
+    if not issues:
+        logger.info('No issues have been found')
+        return
+
+    # Process the issues to update fields
+    update_fields(issues)
+
+    logger.info('Process finished...')
+
 
 if __name__ == "__main__":
     main()
