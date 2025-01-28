@@ -2,6 +2,7 @@ import requests
 import config
 from logger import logger
 
+
 def get_project(organization_name, project_number):
     # GraphQL query
     query = """
@@ -173,6 +174,50 @@ def get_project_issues(owner, owner_type, project_number, filters=None, after=No
         )
 
     return issues
+
+
+def get_issue(owner_name, repo_name, issue_number):
+    # GraphQL query
+    query = """
+    query($owner: String!, $repo: String!, $issueNumber: Int!) {
+        repository(owner: $owner, name: $repo) {
+            issue(number: $issueNumber) {
+                id
+                number
+                title
+                body
+                state
+                author {
+                    login
+                }
+                createdAt
+                updatedAt
+                labels(first: 10) {
+                    nodes {
+                        name
+                        color
+                    }
+                }
+            }
+        }
+    }
+    """
+
+    variables = {
+        'owner': owner_name,
+        'repo': repo_name,
+        'issueNumber': issue_number
+    }
+
+    response = requests.post(
+        config.api_endpoint,
+        json={"query": query, "variables": variables},
+        headers={"Authorization": f"Bearer {config.gh_token}"}
+    )
+
+    # Parse and return the issue details
+    data = response.json()
+    return data.get('data', {}).get('repository', {}).get('issue', None)
 
 
 def add_issue_comment(issueId, comment):
