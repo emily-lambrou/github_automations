@@ -175,7 +175,6 @@ def get_project_issues(owner, owner_type, project_number, filters=None, after=No
 
     return issues
 
-
 def get_issue(owner_name, repo_name, issue_number):
     # GraphQL query
     query = """
@@ -243,6 +242,68 @@ def add_issue_comment(issueId, comment):
 
     return response.json().get('data')
 
+
+
+def get_issue_comments(issueId):
+    query = """
+    query GetIssueComments($issueId: ID!, $afterCursor: String) {
+        node(id: $issueId) {
+            ... on Issue {
+                comments(first: 100, after: $afterCursor) {
+                    nodes {
+                        body
+                        createdAt
+                        author {
+                            login
+                        }
+                    }
+                    pageInfo {
+                        endCursor
+                        hasNextPage
+                    }
+                }
+            }
+        }
+    }
+    """
+
+    variables = {
+        'issueId': issueId,
+        'afterCursor': None
+    }
+
+    all_comments = []
+
+    try:
+        while True:
+            response = requests.post(
+                config.api_endpoint,
+                json={"query": query, "variables": variables},
+                headers={"Authorization": f"Bearer {config.gh_token}"}
+            )
+
+            data = response.json()
+
+            if 'errors' in data:
+                logging.error(f"GraphQL query errors: {data['errors']}")
+                break
+
+            comments_data = data.get('data', {}).get('node', {}).get('comments', {})
+            comments = comments_data.get('nodes', [])
+            all_comments.extend(comments)
+
+            pageinfo = comments_data.get('pageInfo', {})
+            if not pageinfo.get('hasNextPage'):
+                break
+
+            # Set the cursor for the next page
+            variables['afterCursor'] = pageinfo.get('endCursor')
+
+        return all_comments
+
+    except requests.RequestException as e:
+        logging.error(f"Request error: {e}")
+        return []
 
 def update_project_item_fields(project_id, item_id, updates):
     """
