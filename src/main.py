@@ -3,8 +3,58 @@ import config
 import utils
 import graphql
 
+def notify_due_date_changes(issues):
+    for projectItem in issues:
+        # Safely extract 'content' from projectItem
+        issue = projectItem.get('content')
+        if not issue:
+            logger.error(f"Missing 'content' in project item: {projectItem}")
+            continue
 
-def fields_based_on_due_date(project, issue, updates, issues):
+        # Get the list of assignees
+        assignees = issue.get('assignees', {}).get('nodes', [])
+        
+        # Get the due date value
+        due_date = None
+        due_date_obj = None
+        try:
+            due_date = projectItem.get('dueDate').get('date')
+            if due_date:
+                due_date_obj = datetime.strptime(due_date, "%Y-%m-%d").date()
+        except (AttributeError, ValueError) as e:
+            continue  # Skip this issue and move to the next
+
+        issue_title = issue.get('title', 'Unknown Title')
+        issueId = issue.get('id', 'Unknown ID')
+
+        if not due_date_obj:
+            logger.info(f'No due date found for issue {issue_title}')
+            continue
+        
+        expected_comment = f"The Due Date is updated to: {due_date_obj.strftime('%b %d, %Y')}."
+      
+        # Check if the comment already exists
+        if not utils.check_comment_exists(issueId, expected_comment):
+            # Prepare the notification content
+                
+            comment = utils.prepare_duedate_comment(
+                issue=issue,
+                assignees=assignees, 
+                due_date=due_date_obj
+            )
+                
+            if not config.dry_run:
+                try:
+                    # Add the comment to the issue
+                    graphql.add_issue_comment(issueId, comment)
+                    logger.info(f'Comment added to issue with title {issue_title}. Due date is {due_date_obj}.')
+                except Exception as e:
+                    logger.error(f"Failed to add comment to issue {issue_title} (ID: {issueId}): {e}")
+            else:
+                logger.info(f'DRY RUN: Comment prepared for issue with title {issue_title}. Due date is {due_date_obj}.')
+
+
+def fields_based_on_due_date(project, issue, updates):
     # Extract all field nodes from the project
     field_nodes = project["fields"]["nodes"]
 
@@ -25,64 +75,6 @@ def fields_based_on_due_date(project, issue, updates, issues):
     # Retrieve the due date from the issue
     due_date = issue.get('dueDate').get('date')
     output = due_date
-
-    
-
-    for projectItem in issues:
-        # Safely extract 'content' from projectItem
-        issue = projectItem.get('content')
-        if not issue:
-            logger.error(f"Missing 'content' in project item: {projectItem}")
-            continue
-
-        # Get the list of assignees
-        assignees = issue.get('assignees', {}).get('nodes', [])
-        
-        # Get the due date value
-        due_date = None
-        due_date_obj = None
-        try:
-            due_date = projectItem.get('fieldValueByName', {}).get('date')
-            if due_date:
-                due_date_obj = datetime.strptime(due_date, "%Y-%m-%d").date()
-        except (AttributeError, ValueError) as e:
-            continue  # Skip this issue and move to the next
-
-        issue_title = issue.get('title', 'Unknown Title')
-        issue_id = issue.get('id', 'Unknown ID')
-
-        if not due_date_obj:
-            logger.info(f'No due date found for issue {issue_title}')
-            continue
-        
-        expected_comment = f"The Due Date is updated to: {due_date_obj.strftime('%b %d, %Y')}."
-      
-        # Check if the comment already exists
-        if not utils.check_comment_exists(issue_id, expected_comment):
-            if config.notification_type == 'comment':
-                # Prepare the notification content
-                comment = utils.prepare_duedate_comment(
-                    issue=issue,
-                    assignees=assignees, 
-                    due_date=due_date_obj
-                )
-                
-                if not config.dry_run:
-                    try:
-                        # Add the comment to the issue
-                        graphql.add_issue_comment(issue_id, comment)
-                        logger.info(f'Comment added to issue with title {issue_title}. Due date is {due_date_obj}.')
-                    except Exception as e:
-                        logger.error(f"Failed to add comment to issue {issue_title} (ID: {issue_id}): {e}")
-                else:
-                    logger.info(f'DRY RUN: Comment prepared for issue with title {issue_title}. Due date is {due_date_obj}.')
-
-    
-
-
-
-
-    
 
     # Handle missing 'week' field by finding the appropriate week based on the due date
     week = utils.find_week(weeks=week_options, date_str=due_date)
@@ -164,13 +156,12 @@ def update_fields(issues):
         )
     
 
-    
     # Iterate over all issues to check and set missing fields
     for issue in issues:
         updates = []
         # Determine missing fields based on estimation and due date
         comment_fields = fields_based_on_estimation(project, issue, updates)
-        comment_fields += fields_based_on_due_date(project, issue, updates, issues)
+        comment_fields += fields_based_on_due_date(project, issue, updates)
 
         # Apply updates if not in dry run mode
         if updates:
@@ -218,6 +209,9 @@ def main():
 
     # Process the issues to update fields
     update_fields(issues)
+
+    # Process to identify change in the due date and write a comment in the issue
+    notify_due_date_changes(issues)
 
     logger.info('Process finished...')
 
