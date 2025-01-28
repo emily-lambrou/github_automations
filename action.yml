@@ -22,40 +22,22 @@ inputs:
     description: "Determines if the GitHub is the enterprise ot not (True,False)"
     required: false
     default: 'False'
+  comments_issue_number:
+    description: "Set the issue number of the ticket you want the comments to be placed"
+    required: false
+    default: 'False'
+  comments_issue_repo:
+    description: "Set the issue repo of the ticket you want the comments to be placed"
+    required: false
+    default: 'False'
   dry_run:
     description: "DryRun Mode (True,False)"
     required: false
     default: 'False'
-  status_field_name:
-    description: "The field name for the status"
-    required: true
-    default: 'Status'
-  duedate_field_name:
+
+duedate_field_name:
     description: "The field name for the due date"
     required: true
     default: 'Due Date'
-  timespent_field_name:
-    description: "The field name for the time spent"
-    required: true
-    default: 'Time Spent'
-  release_field_name:
-    description: "The field name for the release"
-    required: true
-    default: 'Release'
-  estimate_field_name:
-    description: "The field name for the estimate"
-    required: true
-    default: 'Estimate'
-  priority_field_name:
-    description: "The field name for the priority"
-    required: true
-    default: 'Priority'
-  size_field_name:
-    description: "The field name for the size"
-    required: true
-    default: 'Size'
-  week_field_name:
-    description: "The field name for the week"
-    required: true
-    default: 'Week'
+
     
